@@ -173,7 +173,7 @@ export default function Home() {
               </div>
               <h3 className="font-display text-xl mb-2">CREATE</h3>
               <p className="text-gray-400 text-sm">
-                Host creates a lobby and shares the code with players.
+                A Host creates a lobby and shares the code with players.
               </p>
             </div>
 
@@ -183,7 +183,7 @@ export default function Home() {
               </div>
               <h3 className="font-display text-xl mb-2">JOIN</h3>
               <p className="text-gray-400 text-sm">
-                Players join with the code. First come, first served.
+                Players join with the code.
               </p>
             </div>
 
