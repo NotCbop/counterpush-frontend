@@ -84,7 +84,7 @@ export default function Home() {
           </h1>
 
           <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-10 animate-slide-up" style={{ animationDelay: '0.2s' }}>
-            Competitive team drafting with ELO rankings. Create a lobby, draft your team, and climb the leaderboard.
+            Welcome to CounterPush Ranked!
           </p>
 
           {/* CTA Buttons */}
@@ -251,7 +251,7 @@ export default function Home() {
             <span className="font-display">COUNTERPUSH</span>
           </div>
           <div className="text-gray-500 text-sm">
-            © 2024 Counterpush. All rights reserved.
+            Made by Cbop and Claude AI 💀
           </div>
         </div>
       </footer>

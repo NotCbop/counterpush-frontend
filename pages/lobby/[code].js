@@ -13,14 +13,9 @@ export default function LobbyPage() {
   const [lobby, setLobby] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [testMode, setTestMode] = useState(false);
-  const [testUser, setTestUser] = useState(null);
 
   // Get current user data
   const getCurrentUser = useCallback(() => {
-    if (testMode && testUser) {
-      return testUser;
-    }
     if (session) {
       return {
         odiscordId: session.user.discordId,
@@ -29,7 +24,7 @@ export default function LobbyPage() {
       };
     }
     return null;
-  }, [session, testMode, testUser]);
+  }, [session]);
 
   // Check if current user is host
   const isHost = lobby && getCurrentUser() && lobby.host.odiscordId === getCurrentUser().odiscordId;
@@ -47,31 +42,20 @@ export default function LobbyPage() {
   useEffect(() => {
     if (!code) return;
 
-    // Check for test mode
-    const isTestMode = localStorage.getItem('testMode') === 'true';
-    const storedTestUser = localStorage.getItem('testUser');
-    
-    if (isTestMode && storedTestUser) {
-      setTestMode(true);
-      setTestUser(JSON.parse(storedTestUser));
-    }
-
     const newSocket = io(process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3001');
     setSocket(newSocket);
 
     newSocket.on('connect', () => {
       console.log('Connected to server');
       
-      const userData = isTestMode && storedTestUser
-        ? JSON.parse(storedTestUser)
-        : session ? {
-            odiscordId: session.user.discordId,
-            username: session.user.name,
-            avatar: session.user.image
-          } : null;
+      const userData = session ? {
+        odiscordId: session.user.discordId,
+        username: session.user.name,
+        avatar: session.user.image
+      } : null;
 
       if (userData) {
-        newSocket.emit('joinLobby', { code: code.toUpperCase(), userData, testMode: isTestMode });
+        newSocket.emit('joinLobby', { code: code.toUpperCase(), userData });
       } else {
         fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/lobby/${code}`)
           .then(res => res.json())
@@ -127,22 +111,6 @@ export default function LobbyPage() {
     };
   }, [code, session]);
 
-  // Test mode: Add fake players
-  const addTestPlayers = () => {
-    if (!lobby) return;
-
-    const fakeNames = ['ProGamer99', 'ShadowStrike', 'NightOwl', 'ThunderBolt', 'IceQueen', 'FireStorm', 'CoolKid', 'StarPlayer', 'MoonWalker'];
-    
-    for (let i = 0; i < Math.min(lobby.maxPlayers - lobby.players.length, fakeNames.length); i++) {
-      const fakeUser = {
-        odiscordId: `fake-${Date.now()}-${i}`,
-        username: fakeNames[i],
-        avatar: null
-      };
-      socket.emit('joinLobby', { code: lobby.id, userData: fakeUser, testMode: true });
-    }
-  };
-
   // Actions
   const startCaptainSelect = () => {
     socket.emit('startCaptainSelect', { lobbyId: lobby.id });
@@ -182,8 +150,6 @@ export default function LobbyPage() {
 
   const leaveLobby = () => {
     socket.emit('leaveLobby', { lobbyId: lobby.id });
-    localStorage.removeItem('testMode');
-    localStorage.removeItem('testUser');
     router.push('/');
   };
 
@@ -325,18 +291,6 @@ export default function LobbyPage() {
               )}
             </div>
           </div>
-
-          {/* Test Mode Controls */}
-          {testMode && lobby?.phase === 'waiting' && isHost && (
-            <div className="bg-dark-800 border rounded-xl p-4 mb-6" style={{ borderColor: 'rgba(156, 237, 35, 0.3)' }}>
-              <div className="flex items-center justify-between">
-                <span className="font-semibold" style={{ color: '#9ced23' }}>Test Mode Active</span>
-                <button onClick={addTestPlayers} className="btn-secondary text-sm">
-                  Add Fake Players
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* WAITING PHASE */}
           {lobby?.phase === 'waiting' && (

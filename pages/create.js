@@ -9,30 +9,12 @@ export default function CreateLobby() {
   const router = useRouter();
   const [maxPlayers, setMaxPlayers] = useState(10);
   const [creating, setCreating] = useState(false);
-  const [testMode, setTestMode] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [existingLobby, setExistingLobby] = useState(null);
 
   // Check if user is already in a lobby
   useEffect(() => {
     const checkExistingLobby = async () => {
-      // Check test mode first
-      const isTestMode = localStorage.getItem('testMode') === 'true';
-      const storedTestUser = localStorage.getItem('testUser');
-      
-      if (isTestMode && storedTestUser) {
-        const testUser = JSON.parse(storedTestUser);
-        try {
-          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/session/${testUser.odiscordId}`);
-          const data = await res.json();
-          if (data.lobbyId && data.lobby) {
-            setExistingLobby(data);
-          }
-        } catch (e) {
-          console.error('Failed to check session:', e);
-        }
-      }
-      
       // Check Discord session
       if (session?.user?.discordId) {
         try {
@@ -59,16 +41,11 @@ export default function CreateLobby() {
   };
 
   const clearSession = () => {
-    localStorage.removeItem('testMode');
-    localStorage.removeItem('testUser');
     setExistingLobby(null);
   };
 
   const handleCreate = () => {
-    if (!session && !testMode) return;
-
-    // Debug log
-    console.log('handleCreate called', { testMode, session: session?.user });
+    if (!session) return;
 
     setCreating(true);
 
@@ -77,50 +54,32 @@ export default function CreateLobby() {
     socket.on('connect', () => {
       console.log('Connected to server');
       
-      let userData;
-      if (testMode) {
-        userData = {
-          odiscordId: 'test-host-' + Date.now(),
-          username: 'TestHost',
-          avatar: null
-        };
-      } else {
-        // Check if we have discordId
-        if (!session?.user?.discordId) {
-          console.error('No Discord ID in session!', session);
-          alert('Session error: No Discord ID found. Try logging out and back in.');
-          setCreating(false);
-          socket.disconnect();
-          return;
-        }
-        userData = {
-          odiscordId: session.user.discordId,
-          username: session.user.name,
-          avatar: session.user.image
-        };
+      if (!session?.user?.discordId) {
+        console.error('No Discord ID in session!', session);
+        alert('Session error: No Discord ID found. Try logging out and back in.');
+        setCreating(false);
+        socket.disconnect();
+        return;
       }
+      
+      const userData = {
+        odiscordId: session.user.discordId,
+        username: session.user.name,
+        avatar: session.user.image
+      };
 
-      console.log('Emitting createLobby with:', { userData, maxPlayers, testMode });
-      socket.emit('createLobby', { userData, maxPlayers, testMode });
+      console.log('Emitting createLobby with:', { userData, maxPlayers });
+      socket.emit('createLobby', { userData, maxPlayers });
     });
 
     socket.on('connect_error', (err) => {
       console.error('Connection error:', err);
-      alert('Cannot connect to server. Make sure the backend is running.');
+      alert('Cannot connect to server. Please try again.');
       setCreating(false);
     });
 
     socket.on('lobbyCreated', (lobby) => {
       console.log('Lobby created:', lobby);
-      // Store test mode preference
-      if (testMode) {
-        localStorage.setItem('testMode', 'true');
-        localStorage.setItem('testUser', JSON.stringify({
-          odiscordId: lobby.host.odiscordId,
-          username: 'TestHost',
-          avatar: null
-        }));
-      }
       router.push(`/lobby/${lobby.id}`);
     });
 
@@ -180,25 +139,6 @@ export default function CreateLobby() {
           {/* Create Form - only show if no existing lobby */}
           {!existingLobby && (
             <div className="bg-dark-800 border border-dark-600 rounded-2xl p-8">
-              {/* Test Mode Toggle */}
-              <div className="flex items-center justify-between mb-8 pb-6 border-b border-dark-600">
-                <div>
-                  <div className="font-semibold">Test Mode</div>
-                  <div className="text-sm text-gray-400">Create without Discord login</div>
-                </div>
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={testMode}
-                    onChange={(e) => setTestMode(e.target.checked)}
-                    className="sr-only"
-                  />
-                  <div className={`w-12 h-6 rounded-full transition-colors`} style={{ backgroundColor: testMode ? '#9ced23' : '#22222e' }}>
-                    <div className={`w-5 h-5 rounded-full bg-white mt-0.5 transition-transform ${testMode ? 'translate-x-6' : 'translate-x-0.5'}`} />
-                  </div>
-                </label>
-              </div>
-
               {/* Max Players */}
               <div className="mb-8">
                 <label className="block font-semibold mb-4">Max Players</label>
@@ -224,7 +164,7 @@ export default function CreateLobby() {
               </div>
 
               {/* Create Button */}
-              {session || testMode ? (
+              {session ? (
                 <button
                   onClick={handleCreate}
                   disabled={creating}
