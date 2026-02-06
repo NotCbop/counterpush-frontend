@@ -355,7 +355,7 @@ export default function LobbyPage() {
                 {lobby?.phase === 'finished' && 'Match Complete'}
               </div>
 
-              {isHost && lobby?.phase === 'waiting' && (
+              {isHost && lobby?.phase !== 'finished' && (
                 <button onClick={closeLobby} className="btn-secondary text-red-400 text-sm">Close Lobby</button>
               )}
               {!isHost && lobby?.phase === 'waiting' && (
