@@ -278,7 +278,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="Counterpush" className="w-10 h-10 rounded-lg" />
-            <span className="font-display">COUNTERPUSH</span>
+            <span className="font-display gradient-text-animated">COUNTERPUSH</span>
           </div>
           <div className="text-gray-500 text-sm">Made by Cbop and Claude AI 👀</div>
         </div>

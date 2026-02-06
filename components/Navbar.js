@@ -17,7 +17,7 @@ export default function Navbar() {
               alt="Counterpush" 
               className="w-10 h-10 rounded-lg group-hover:scale-110 transition-transform"
             />
-            <span className="font-display text-xl hidden sm:block">COUNTERPUSH</span>
+            <span className="font-display text-xl hidden sm:block gradient-text-animated">COUNTERPUSH</span>
           </Link>
 
           {/* Desktop Navigation - centered */}

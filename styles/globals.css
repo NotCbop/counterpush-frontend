@@ -59,6 +59,29 @@ body {
   background-clip: text;
 }
 
+/* Animated gradient text */
+.gradient-text-animated {
+  background: linear-gradient(
+    90deg,
+    #9ced23 0%,
+    #0d52ad 25%,
+    #9ced23 50%,
+    #0d52ad 75%,
+    #9ced23 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: gradient-flow 3s linear infinite;
+}
+
+@keyframes gradient-flow {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
 /* Glowing effects */
 .glow-green {
   box-shadow: 0 0 20px rgba(156, 237, 35, 0.4);
