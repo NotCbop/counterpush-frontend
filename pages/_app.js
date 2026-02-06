@@ -9,8 +9,7 @@ export default function App({ Component, pageProps: { session, ...pageProps } })
         <title>Counterpush - Competitive Draft</title>
         <meta name="description" content="Competitive team drafting with ELO rankings" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" type="image/png" href="/favicon.png" />
-        <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+        <link rel="icon" href="/favicon.ico" />
       </Head>
       <Component {...pageProps} />
     </SessionProvider>

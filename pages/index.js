@@ -4,13 +4,13 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Navbar from '../components/Navbar';
+import io from 'socket.io-client';
 
 // ============================================
 // MAINTENANCE MODE SETTINGS
 // ============================================
-const MAINTENANCE_MODE = true; // Set to false to disable maintenance mode
-const SECRET_PASSWORD = 'letmein'; // Change this to your secret password
-// Access with: https://counter-push-ranked.pro?access=letmein
+const MAINTENANCE_MODE = true;
+const SECRET_PASSWORD = 'letmein';
 // ============================================
 
 export default function Home() {
@@ -21,6 +21,8 @@ export default function Home() {
   const [activeLobby, setActiveLobby] = useState(null);
   const [hasAccess, setHasAccess] = useState(false);
   const [checkingAccess, setCheckingAccess] = useState(true);
+  const [publicLobbies, setPublicLobbies] = useState([]);
+  const [socket, setSocket] = useState(null);
 
   // Check for maintenance bypass
   useEffect(() => {
@@ -42,12 +44,29 @@ export default function Home() {
     setCheckingAccess(false);
   }, [router.query]);
 
+  // Connect to socket for lobby updates
+  useEffect(() => {
+    if (!hasAccess) return;
+
+    const newSocket = io(process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3001');
+    setSocket(newSocket);
+
+    newSocket.on('connect', () => {
+      newSocket.emit('getPublicLobbies');
+    });
+
+    newSocket.on('lobbiesUpdate', (lobbies) => {
+      setPublicLobbies(lobbies);
+    });
+
+    return () => newSocket.close();
+  }, [hasAccess]);
+
   // Check if user is already in a lobby
   useEffect(() => {
     if (!hasAccess) return;
 
     const checkExistingLobby = async () => {
-      // Check Discord session
       if (session?.user?.discordId) {
         try {
           const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/session/${session.user.discordId}`);
@@ -72,25 +91,21 @@ export default function Home() {
     }
   };
 
-  // Show loading while checking access
   if (checkingAccess) {
     return <div className="min-h-screen bg-dark-900" />;
   }
 
-  // Show maintenance page if no access
+  // Maintenance page
   if (MAINTENANCE_MODE && !hasAccess) {
     return (
       <div className="min-h-screen bg-dark-900 flex items-center justify-center px-4">
         <Head>
           <title>Counterpush - Maintenance</title>
         </Head>
-
-        {/* Background Effects */}
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full blur-3xl" style={{ backgroundColor: 'rgba(156, 237, 35, 0.1)' }} />
           <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full blur-3xl" style={{ backgroundColor: 'rgba(13, 82, 173, 0.15)' }} />
         </div>
-
         <div className="text-center relative z-10">
           <div className="text-7xl mb-8">🔧</div>
           <h1 className="font-display text-5xl md:text-7xl mb-6">
@@ -101,38 +116,28 @@ export default function Home() {
           <p className="text-gray-400 text-xl max-w-md mx-auto mb-8">
             We're making some improvements. Check back soon!
           </p>
-          <div className="flex items-center justify-center gap-3">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center font-display text-sm" style={{ background: 'linear-gradient(135deg, #9ced23 0%, #0d52ad 100%)' }}>
-              CP
-            </div>
-            <span className="font-display text-gray-500">COUNTERPUSH</span>
-          </div>
         </div>
       </div>
     );
   }
 
-  // Show real homepage
   return (
     <div className="min-h-screen bg-dark-900 bg-noise">
       <Navbar />
 
       {/* Hero Section */}
       <section className="relative pt-32 pb-20 px-4 overflow-hidden">
-        {/* Background Effects */}
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full blur-3xl" style={{ backgroundColor: 'rgba(156, 237, 35, 0.15)' }} />
           <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full blur-3xl" style={{ backgroundColor: 'rgba(13, 82, 173, 0.2)' }} />
         </div>
 
         <div className="relative max-w-7xl mx-auto text-center">
-          {/* Badge */}
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-dark-700/50 border border-dark-500 rounded-full text-sm mb-8 animate-slide-up">
             <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
             <span className="text-gray-300">Season 1 Active</span>
           </div>
 
-          {/* Main Title */}
           <h1 className="font-display text-6xl md:text-8xl mb-6 animate-slide-up" style={{ animationDelay: '0.1s' }}>
             <span className="gradient-text">COUNTER</span>
             <br />
@@ -143,17 +148,13 @@ export default function Home() {
             Welcome to CounterPush Ranked!
           </p>
 
-          {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center animate-slide-up" style={{ animationDelay: '0.3s' }}>
             {activeLobby ? (
               <>
                 <Link href={`/lobby/${activeLobby}`} className="btn-primary text-lg">
                   Rejoin Lobby ({activeLobby})
                 </Link>
-                <button 
-                  onClick={() => setShowJoinModal(true)} 
-                  className="btn-secondary text-lg"
-                >
+                <button onClick={() => setShowJoinModal(true)} className="btn-secondary text-lg">
                   Join Different Lobby
                 </button>
               </>
@@ -162,10 +163,7 @@ export default function Home() {
                 <Link href="/create" className="btn-primary text-lg">
                   Create Lobby
                 </Link>
-                <button 
-                  onClick={() => setShowJoinModal(true)} 
-                  className="btn-secondary text-lg"
-                >
+                <button onClick={() => setShowJoinModal(true)} className="btn-secondary text-lg">
                   Join Lobby
                 </button>
               </>
@@ -193,23 +191,15 @@ export default function Home() {
               placeholder="Enter lobby code"
               maxLength={6}
               className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-lg text-center text-2xl font-mono tracking-widest focus:outline-none mb-6"
-              style={{ '--focus-color': '#9ced23' }}
               onFocus={(e) => e.target.style.borderColor = '#9ced23'}
               onBlur={(e) => e.target.style.borderColor = ''}
               autoFocus
             />
             <div className="flex gap-4">
-              <button
-                onClick={() => setShowJoinModal(false)}
-                className="flex-1 btn-secondary"
-              >
+              <button onClick={() => setShowJoinModal(false)} className="flex-1 btn-secondary">
                 Cancel
               </button>
-              <button
-                onClick={handleJoinLobby}
-                disabled={joinCode.length < 4}
-                className="flex-1 btn-primary disabled:opacity-50"
-              >
+              <button onClick={handleJoinLobby} disabled={joinCode.length < 4} className="flex-1 btn-primary disabled:opacity-50">
                 Join
               </button>
             </div>
@@ -217,82 +207,67 @@ export default function Home() {
         </div>
       )}
 
-      {/* Features Section */}
-      <section className="py-20 px-4">
+      {/* Public Lobbies Section */}
+      <section className="py-12 px-4">
         <div className="max-w-7xl mx-auto">
-          <h2 className="font-display text-4xl text-center mb-16">HOW IT WORKS</h2>
-
-          <div className="grid md:grid-cols-4 gap-6">
-            <div className="bg-dark-800 border border-dark-600 rounded-2xl p-6 card-hover">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4" style={{ background: 'linear-gradient(135deg, #9ced23 0%, #7bc41a 100%)' }}>
-                1
-              </div>
-              <h3 className="font-display text-xl mb-2">CREATE</h3>
-              <p className="text-gray-400 text-sm">
-                A Host creates a lobby and shares the code with players.
-              </p>
+          <h2 className="font-display text-3xl text-center mb-8">PUBLIC LOBBIES</h2>
+          
+          {publicLobbies.length > 0 ? (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {publicLobbies.map(lobby => (
+                <div key={lobby.id} className="bg-dark-800 border border-dark-600 rounded-xl p-6 card-hover">
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="font-mono text-xl tracking-widest">{lobby.id}</span>
+                    <span className="text-gray-400 text-sm">{lobby.playerCount}/{lobby.maxPlayers} players</span>
+                  </div>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-8 h-8 rounded-full bg-dark-600 flex items-center justify-center">
+                      {lobby.host.avatar ? (
+                        <img src={lobby.host.avatar} alt="" className="w-full h-full rounded-full" />
+                      ) : lobby.host.username[0]}
+                    </div>
+                    <span className="text-gray-300">{lobby.host.username}</span>
+                  </div>
+                  <Link href={`/lobby/${lobby.id}`} className="btn-primary w-full text-center block">
+                    Join Lobby
+                  </Link>
+                </div>
+              ))}
             </div>
-
-            <div className="bg-dark-800 border border-dark-600 rounded-2xl p-6 card-hover">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4" style={{ background: 'linear-gradient(135deg, #0d52ad 0%, #093d82 100%)' }}>
-                2
-              </div>
-              <h3 className="font-display text-xl mb-2">JOIN</h3>
-              <p className="text-gray-400 text-sm">
-                Players join with the code.
-              </p>
+          ) : (
+            <div className="text-center text-gray-500 py-12">
+              <div className="text-4xl mb-4">🎮</div>
+              <p>No public lobbies available. Create one!</p>
             </div>
-
-            <div className="bg-dark-800 border border-dark-600 rounded-2xl p-6 card-hover">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4" style={{ background: 'linear-gradient(135deg, #9ced23 0%, #0d52ad 100%)' }}>
-                3
-              </div>
-              <h3 className="font-display text-xl mb-2">DRAFT</h3>
-              <p className="text-gray-400 text-sm">
-                Host picks captains, then captains draft their teams.
-              </p>
-            </div>
-
-            <div className="bg-dark-800 border border-dark-600 rounded-2xl p-6 card-hover">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4" style={{ background: 'linear-gradient(135deg, #0d52ad 0%, #9ced23 100%)' }}>
-                4
-              </div>
-              <h3 className="font-display text-xl mb-2">PLAY</h3>
-              <p className="text-gray-400 text-sm">
-                Battle it out and claim victory!
-              </p>
-            </div>
-          </div>
+          )}
         </div>
       </section>
 
-      {/* Ranks Section */}
-      <section className="py-20 px-4 bg-dark-800/50">
+      {/* How it Works */}
+      <section className="py-20 px-4">
         <div className="max-w-7xl mx-auto">
-          <h2 className="font-display text-4xl text-center mb-4">RANK TIERS</h2>
-          <p className="text-gray-400 text-center mb-16 max-w-2xl mx-auto">
-            Climb the ranks and prove your worth.
-          </p>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {[
-              { rank: 'S', elo: '1400+', color: 'from-yellow-500 to-amber-600', glow: 'shadow-yellow-500/30' },
-              { rank: 'A', elo: '1250+', color: 'from-purple-500 to-violet-600', glow: 'shadow-purple-500/30' },
-              { rank: 'B', elo: '1100+', color: 'from-blue-500 to-indigo-600', glow: 'shadow-blue-500/30' },
-              { rank: 'C', elo: '950+', color: 'from-emerald-500 to-green-600', glow: 'shadow-emerald-500/30' },
-              { rank: 'D', elo: '800+', color: 'from-orange-500 to-red-600', glow: 'shadow-orange-500/30' },
-              { rank: 'F', elo: '<800', color: 'from-gray-500 to-gray-600', glow: 'shadow-gray-500/30' },
-            ].map((tier, i) => (
-              <div
-                key={tier.rank}
-                className={`bg-dark-700 border border-dark-500 rounded-xl p-6 text-center card-hover shadow-lg ${tier.glow}`}
-              >
-                <div className={`w-16 h-16 mx-auto rounded-xl bg-gradient-to-br ${tier.color} flex items-center justify-center font-display text-3xl mb-4`}>
-                  {tier.rank}
-                </div>
-                <div className="font-mono text-sm text-gray-400">{tier.elo} ELO</div>
-              </div>
-            ))}
+          <h2 className="font-display text-4xl text-center mb-16">HOW IT WORKS</h2>
+          <div className="grid md:grid-cols-4 gap-6">
+            <div className="bg-dark-800 border border-dark-600 rounded-2xl p-6 card-hover">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4" style={{ background: 'linear-gradient(135deg, #9ced23 0%, #7bc41a 100%)' }}>1</div>
+              <h3 className="font-display text-xl mb-2">CREATE</h3>
+              <p className="text-gray-400 text-sm">Host creates a lobby and shares the code.</p>
+            </div>
+            <div className="bg-dark-800 border border-dark-600 rounded-2xl p-6 card-hover">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4" style={{ background: 'linear-gradient(135deg, #0d52ad 0%, #093d82 100%)' }}>2</div>
+              <h3 className="font-display text-xl mb-2">JOIN</h3>
+              <p className="text-gray-400 text-sm">Players join with the code or from browser.</p>
+            </div>
+            <div className="bg-dark-800 border border-dark-600 rounded-2xl p-6 card-hover">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4" style={{ background: 'linear-gradient(135deg, #9ced23 0%, #0d52ad 100%)' }}>3</div>
+              <h3 className="font-display text-xl mb-2">DRAFT</h3>
+              <p className="text-gray-400 text-sm">Host picks captains, then captains draft.</p>
+            </div>
+            <div className="bg-dark-800 border border-dark-600 rounded-2xl p-6 card-hover">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4" style={{ background: 'linear-gradient(135deg, #0d52ad 0%, #9ced23 100%)' }}>4</div>
+              <h3 className="font-display text-xl mb-2">PLAY</h3>
+              <p className="text-gray-400 text-sm">Battle it out and claim victory!</p>
+            </div>
           </div>
         </div>
       </section>
@@ -301,14 +276,10 @@ export default function Home() {
       <footer className="py-12 px-4 border-t border-dark-700">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center font-display" style={{ background: 'linear-gradient(135deg, #9ced23 0%, #0d52ad 100%)' }}>
-              CP
-            </div>
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center font-display" style={{ background: 'linear-gradient(135deg, #9ced23 0%, #0d52ad 100%)' }}>CP</div>
             <span className="font-display">COUNTERPUSH</span>
           </div>
-          <div className="text-gray-500 text-sm">
-            Made by Cbop and Claude AI 👀
-          </div>
+          <div className="text-gray-500 text-sm">Made by Cbop and Claude AI 👀</div>
         </div>
       </footer>
     </div>

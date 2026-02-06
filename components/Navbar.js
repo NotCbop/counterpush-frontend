@@ -23,6 +23,9 @@ export default function Navbar() {
             <Link href="/create" className="text-gray-300 hover:text-white transition-colors">
               Play
             </Link>
+            <Link href="/browse" className="text-gray-300 hover:text-white transition-colors">
+              Browse
+            </Link>
             <Link href="/leaderboard" className="text-gray-300 hover:text-white transition-colors">
               Leaderboard
             </Link>
@@ -83,6 +86,9 @@ export default function Navbar() {
             <div className="flex flex-col gap-4">
               <Link href="/create" className="text-gray-300 hover:text-white transition-colors">
                 Play
+              </Link>
+              <Link href="/browse" className="text-gray-300 hover:text-white transition-colors">
+                Browse
               </Link>
               <Link href="/leaderboard" className="text-gray-300 hover:text-white transition-colors">
                 Leaderboard
