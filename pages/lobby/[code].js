@@ -126,6 +126,7 @@ export default function LobbyPage() {
   // Actions
   const startCaptainSelect = () => socket.emit('startCaptainSelect', { lobbyId: lobby.id });
   const selectCaptain = (odiscordId) => socket.emit('selectCaptain', { lobbyId: lobby.id, odiscordId });
+  const removeCaptain = (odiscordId) => socket.emit('removeCaptain', { lobbyId: lobby.id, odiscordId });
   const draftPick = (odiscordId) => socket.emit('draftPick', { lobbyId: lobby.id, odiscordId });
   const addScore = (team) => socket.emit('addScore', { lobbyId: lobby.id, team });
   const declareWinner = (winnerTeam) => {
@@ -430,7 +431,17 @@ export default function LobbyPage() {
                 <div className="bg-dark-800 border border-blue-500/30 rounded-xl p-6">
                   <h3 className="font-display text-xl text-blue-400 mb-4">TEAM 1 CAPTAIN</h3>
                   {lobby.teams.team1[0] ? (
-                    <PlayerCard player={lobby.teams.team1[0]} isCaptain />
+                    <div className="relative">
+                      <PlayerCard player={lobby.teams.team1[0]} isCaptain />
+                      {isHost && (
+                        <button
+                          onClick={() => removeCaptain(lobby.teams.team1[0].odiscordId)}
+                          className="absolute top-2 right-2 px-2 py-1 bg-red-500/20 hover:bg-red-500/40 rounded text-red-400 text-xs"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
                   ) : (
                     <div className="h-20 border-2 border-dashed border-dark-500 rounded-xl flex items-center justify-center text-gray-500">Not selected</div>
                   )}
@@ -438,7 +449,17 @@ export default function LobbyPage() {
                 <div className="bg-dark-800 border border-red-500/30 rounded-xl p-6">
                   <h3 className="font-display text-xl text-red-400 mb-4">TEAM 2 CAPTAIN</h3>
                   {lobby.teams.team2[0] ? (
-                    <PlayerCard player={lobby.teams.team2[0]} isCaptain />
+                    <div className="relative">
+                      <PlayerCard player={lobby.teams.team2[0]} isCaptain />
+                      {isHost && (
+                        <button
+                          onClick={() => removeCaptain(lobby.teams.team2[0].odiscordId)}
+                          className="absolute top-2 right-2 px-2 py-1 bg-red-500/20 hover:bg-red-500/40 rounded text-red-400 text-xs"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
                   ) : (
                     <div className="h-20 border-2 border-dashed border-dark-500 rounded-xl flex items-center justify-center text-gray-500">Not selected</div>
                   )}

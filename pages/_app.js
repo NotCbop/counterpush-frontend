@@ -6,8 +6,8 @@ export default function App({ Component, pageProps: { session, ...pageProps } })
   return (
     <SessionProvider session={session}>
       <Head>
-        <title>Counterpush - Competitive Draft</title>
-        <meta name="description" content="Competitive team drafting with ELO rankings" />
+        <title>CounterPush</title>
+        <meta name="description" content="Welcome to CounterPush!" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>

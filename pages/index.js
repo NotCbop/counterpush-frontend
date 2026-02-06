@@ -136,7 +136,7 @@ export default function Home() {
         <div className="relative max-w-7xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-dark-700/50 border border-dark-500 rounded-full text-sm mb-8 animate-slide-up">
             <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-            <span className="text-gray-300">Season 1 Active</span>
+            <span className="text-gray-300">Open Beta Active</span>
           </div>
 
           <h1 className="font-display text-6xl md:text-8xl mb-6 animate-slide-up" style={{ animationDelay: '0.1s' }}>
