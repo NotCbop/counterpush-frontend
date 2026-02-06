@@ -126,10 +126,11 @@ export default function Home() {
       <Navbar />
 
       {/* Hero Section */}
-      <section className="relative pt-32 pb-20 px-4 overflow-hidden">
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full blur-3xl" style={{ backgroundColor: 'rgba(156, 237, 35, 0.15)' }} />
-          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full blur-3xl" style={{ backgroundColor: 'rgba(13, 82, 173, 0.2)' }} />
+      <section className="relative pt-32 pb-20 px-4 overflow-visible">
+        {/* Background Effects - positioned to not get cut off */}
+        <div className="absolute inset-0 pointer-events-none" style={{ overflow: 'visible' }}>
+          <div className="absolute top-20 left-1/4 w-[500px] h-[500px] rounded-full blur-[120px] opacity-40" style={{ backgroundColor: '#9ced23' }} />
+          <div className="absolute top-40 right-1/4 w-[600px] h-[600px] rounded-full blur-[150px] opacity-30" style={{ backgroundColor: '#0d52ad' }} />
         </div>
 
         <div className="relative max-w-7xl mx-auto text-center">
@@ -215,9 +216,9 @@ export default function Home() {
           {publicLobbies.length > 0 ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
               {publicLobbies.map(lobby => (
-                <div key={lobby.id} className="bg-dark-800 border border-dark-600 rounded-xl p-6 card-hover">
+                <div key={lobby.id} className="glass-card rounded-xl p-6 card-hover">
                   <div className="flex items-center justify-between mb-4">
-                    <span className="font-mono text-xl tracking-widest">{lobby.id}</span>
+                    <span className="font-mono text-xl tracking-widest gradient-text">{lobby.id}</span>
                     <span className="text-gray-400 text-sm">{lobby.playerCount}/{lobby.maxPlayers} players</span>
                   </div>
                   <div className="flex items-center gap-3 mb-4">
@@ -235,7 +236,7 @@ export default function Home() {
               ))}
             </div>
           ) : (
-            <div className="text-center text-gray-500 py-12">
+            <div className="glass-card rounded-xl text-center text-gray-500 py-12">
               <div className="text-4xl mb-4">🎮</div>
               <p>No public lobbies available. Create one!</p>
             </div>
