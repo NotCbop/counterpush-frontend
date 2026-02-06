@@ -9,7 +9,7 @@ import io from 'socket.io-client';
 // ============================================
 // MAINTENANCE MODE SETTINGS
 // ============================================
-const MAINTENANCE_MODE = true;
+const MAINTENANCE_MODE = false;
 const SECRET_PASSWORD = 'letmein';
 // ============================================
 
