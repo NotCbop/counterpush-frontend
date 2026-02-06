@@ -12,9 +12,11 @@ export default function Navbar() {
         <div className="flex items-center justify-center h-16 relative">
           {/* Logo - positioned absolute left */}
           <Link href="/" className="absolute left-4 flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center font-display text-xl group-hover:scale-110 transition-transform" style={{ background: 'linear-gradient(135deg, #9ced23 0%, #0d52ad 100%)' }}>
-              CP
-            </div>
+            <img 
+              src="/logo.png" 
+              alt="Counterpush" 
+              className="w-10 h-10 rounded-lg group-hover:scale-110 transition-transform"
+            />
             <span className="font-display text-xl hidden sm:block">COUNTERPUSH</span>
           </Link>
 

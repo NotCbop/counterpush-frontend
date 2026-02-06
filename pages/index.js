@@ -277,7 +277,7 @@ export default function Home() {
       <footer className="py-12 px-4 border-t border-dark-700">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center font-display" style={{ background: 'linear-gradient(135deg, #9ced23 0%, #0d52ad 100%)' }}>CP</div>
+            <img src="/logo.png" alt="Counterpush" className="w-10 h-10 rounded-lg" />
             <span className="font-display">COUNTERPUSH</span>
           </div>
           <div className="text-gray-500 text-sm">Made by Cbop and Claude AI 👀</div>
