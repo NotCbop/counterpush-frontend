@@ -523,49 +523,38 @@ export default function LobbyPage() {
           {(lobby?.phase === 'playing' || lobby?.phase === 'finished') && (
             <div className="space-y-6">
               <div className="bg-dark-800 border border-dark-600 rounded-xl p-8 text-center">
-                <div className="text-gray-400 mb-4">{lobby.phase === 'finished' ? 'FINAL SCORE' : 'CURRENT SCORE'}</div>
-                <div className="flex items-center justify-center gap-8">
-                  <div>
-                    <div className="font-display text-5xl text-blue-400">{lobby.score.team1}</div>
-                    <div className="text-gray-400 mt-2">Team 1</div>
-                  </div>
-                  <div className="text-4xl text-gray-600">-</div>
-                  <div>
-                    <div className="font-display text-5xl text-red-400">{lobby.score.team2}</div>
-                    <div className="text-gray-400 mt-2">Team 2</div>
-                  </div>
-                </div>
+                {lobby.phase === 'playing' && (
+                  <>
+                    <div className="text-gray-400 mb-4">MATCH IN PROGRESS</div>
+                    <div className="text-6xl mb-6">⚔️</div>
+                    
+                    {isHost ? (
+                      <div className="space-y-4">
+                        <p className="text-gray-400 mb-4">Select the winning team:</p>
+                        <div className="flex justify-center gap-4">
+                          <button onClick={() => declareWinner('team1')} className="px-8 py-4 bg-blue-600 hover:bg-blue-500 rounded-xl text-lg font-semibold transition-all hover:scale-105">
+                            🔵 Team 1 Wins
+                          </button>
+                          <button onClick={() => declareWinner('team2')} className="px-8 py-4 bg-red-600 hover:bg-red-500 rounded-xl text-lg font-semibold transition-all hover:scale-105">
+                            🔴 Team 2 Wins
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-gray-500">Waiting for host to report match result...</div>
+                    )}
+                  </>
+                )}
 
                 {lobby.phase === 'finished' && (
-                  <div className="mt-6">
-                    <div className={`font-display text-2xl ${lobby.score.team1 > lobby.score.team2 ? 'text-blue-400' : 'text-red-400'}`}>
+                  <>
+                    <div className={`font-display text-3xl mb-4 ${lobby.score.team1 > lobby.score.team2 ? 'text-blue-400' : 'text-red-400'}`}>
                       🏆 {lobby.score.team1 > lobby.score.team2 ? 'TEAM 1' : 'TEAM 2'} WINS! 🏆
                     </div>
-                  </div>
-                )}
-
-                {lobby.phase === 'playing' && isHost && (
-                  <div className="mt-6 space-y-4">
-                    <div className="flex justify-center gap-4">
-                      <button onClick={() => addScore('team1')} className="btn-secondary">Team 1 Wins Round</button>
-                      <button onClick={() => addScore('team2')} className="btn-secondary">Team 2 Wins Round</button>
-                    </div>
-                    <div className="pt-4 border-t border-dark-600">
-                      <p className="text-gray-500 text-sm mb-3">Or declare the match winner:</p>
-                      <div className="flex justify-center gap-4">
-                        <button onClick={() => declareWinner('team1')} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm">Team 1 Wins</button>
-                        <button onClick={() => declareWinner('team2')} className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-sm">Team 2 Wins</button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {lobby.phase === 'playing' && !isHost && (
-                  <div className="mt-6 text-gray-500">Waiting for host to report match result...</div>
-                )}
-
-                {lobby.phase === 'finished' && isHost && (
-                  <button onClick={resetLobby} className="btn-primary mt-6">Start New Game</button>
+                    {isHost && (
+                      <button onClick={resetLobby} className="btn-primary mt-4">Start New Game</button>
+                    )}
+                  </>
                 )}
               </div>
 
