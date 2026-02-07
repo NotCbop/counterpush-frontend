@@ -146,8 +146,8 @@ export default function CreateLobby() {
                 {/* Max Players */}
                 <div className="mb-6">
                   <label className="block font-semibold mb-4">Max Players</label>
-                  <div className="grid grid-cols-4 gap-3">
-                    {[4, 6, 8, 10].map(num => (
+                  <div className="grid grid-cols-5 gap-3">
+                    {[2, 4, 6, 8, 10].map(num => (
                       <button
                         key={num}
                         onClick={() => setMaxPlayers(num)}
@@ -160,7 +160,10 @@ export default function CreateLobby() {
                       </button>
                     ))}
                   </div>
-                  <p className="text-sm text-gray-500 mt-2">{maxPlayers / 2} players per team</p>
+                  <p className="text-sm text-gray-500 mt-2">
+                    {maxPlayers / 2} player{maxPlayers / 2 !== 1 ? 's' : ''} per team
+                    {maxPlayers === 2 && <span className="text-yellow-400 ml-2">(Test Mode)</span>}
+                  </p>
                 </div>
 
                 {session ? (
