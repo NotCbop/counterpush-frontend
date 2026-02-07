@@ -388,7 +388,7 @@ export default function LobbyPage() {
               <div className="bg-dark-800 border border-dark-600 rounded-xl p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="font-display text-xl">PLAYERS ({lobby.players.length}/{lobby.maxPlayers})</h2>
-                  {isHost && lobby.players.length >= (lobby.maxPlayers === 2 ? 2 : 4) && (
+                  {isHost && lobby.players.length >= 4 && (
                     <button 
                       onClick={startCaptainSelect} 
                       className="btn-primary"
