@@ -128,6 +128,39 @@ export default function PlayerProfile() {
             </div>
           </div>
 
+          {/* Combat Stats */}
+          {(player.totalKills > 0 || player.totalDeaths > 0) && (
+            <div className="bg-dark-800 border border-dark-600 rounded-2xl p-6 mb-8">
+              <h2 className="font-display text-xl mb-4">COMBAT STATS</h2>
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-400">{player.totalKills || 0}</div>
+                  <div className="text-gray-500 text-xs">Kills</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-red-400">{player.totalDeaths || 0}</div>
+                  <div className="text-gray-500 text-xs">Deaths</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-400">{player.totalAssists || 0}</div>
+                  <div className="text-gray-500 text-xs">Assists</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-yellow-400">{player.kdr || '0.00'}</div>
+                  <div className="text-gray-500 text-xs">KDR</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-orange-400">{player.totalDamage || 0}</div>
+                  <div className="text-gray-500 text-xs">Damage</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-pink-400">{player.totalHealing || 0}</div>
+                  <div className="text-gray-500 text-xs">Healing</div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Match History */}
           <div className="bg-dark-800 border border-dark-600 rounded-2xl p-6">
             <h2 className="font-display text-2xl mb-6">MATCH HISTORY</h2>
@@ -170,8 +203,19 @@ export default function PlayerProfile() {
                         </div>
                       </div>
                       
+                      {/* Show player's match stats if available */}
+                      {playerResult?.stats && (
+                        <div className="mt-3 pt-3 border-t border-dark-600 flex flex-wrap gap-4 text-sm">
+                          <div><span className="text-gray-500">K:</span> <span className="text-green-400">{playerResult.stats.kills || 0}</span></div>
+                          <div><span className="text-gray-500">D:</span> <span className="text-red-400">{playerResult.stats.deaths || 0}</span></div>
+                          <div><span className="text-gray-500">A:</span> <span className="text-blue-400">{playerResult.stats.assists || 0}</span></div>
+                          <div><span className="text-gray-500">DMG:</span> <span className="text-orange-400">{playerResult.stats.damage || 0}</span></div>
+                          <div><span className="text-gray-500">HEAL:</span> <span className="text-pink-400">{playerResult.stats.healing || 0}</span></div>
+                        </div>
+                      )}
+                      
                       {/* Show other players in match */}
-                      <div className="mt-3 pt-3 border-t border-dark-600 grid md:grid-cols-2 gap-4">
+                      <div className={`mt-3 pt-3 border-t border-dark-600 grid md:grid-cols-2 gap-4 ${playerResult?.stats ? '' : ''}`}>
                         <div>
                           <div className="text-xs text-green-400 mb-1">Winners</div>
                           <div className="flex flex-wrap gap-1">

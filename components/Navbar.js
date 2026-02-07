@@ -34,6 +34,9 @@ export default function Navbar() {
             <Link href="/stats" className="text-gray-300 hover:text-white transition-colors">
               Stats
             </Link>
+            <Link href="/link" className="text-gray-300 hover:text-white transition-colors">
+              Link MC
+            </Link>
           </div>
 
           {/* Auth Section - positioned absolute right */}
@@ -97,6 +100,9 @@ export default function Navbar() {
               </Link>
               <Link href="/stats" className="text-gray-300 hover:text-white transition-colors">
                 Stats
+              </Link>
+              <Link href="/link" className="text-gray-300 hover:text-white transition-colors">
+                Link MC
               </Link>
             </div>
           </div>
