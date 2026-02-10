@@ -24,6 +24,8 @@ export default function LobbyPage() {
   const [purgeComplete, setPurgeComplete] = useState(false);
   const [isSurvivor, setIsSurvivor] = useState(false);
   const [isEliminated, setIsEliminated] = useState(false);
+  const [immunePlayers, setImmunePlayers] = useState([]);
+  const [hasImmunityNextTime, setHasImmunityNextTime] = useState(false);
 
   // Market state
   const [auctionPlayer, setAuctionPlayer] = useState(null);
@@ -141,6 +143,8 @@ export default function LobbyPage() {
       setPurgeComplete(false);
       setIsSurvivor(false);
       setIsEliminated(false);
+      setImmunePlayers([]);
+      setHasImmunityNextTime(false);
       
       // Play countdown sound
       if (countdownSound) {
@@ -158,7 +162,11 @@ export default function LobbyPage() {
       }, 1000);
     });
 
-    newSocket.on('playerEliminated', ({ player, index, total }) => {
+    newSocket.on('immunityUsed', ({ players }) => {
+      setImmunePlayers(players);
+    });
+
+    newSocket.on('playerEliminated', ({ player, index, total, hasImmunity }) => {
       setEliminatedPlayers(prev => [...prev, player]);
       
       // Play elimination sound
@@ -171,6 +179,9 @@ export default function LobbyPage() {
       const currentUser = session?.user?.discordId;
       if (currentUser && player.odiscordId === currentUser) {
         setIsEliminated(true);
+        if (hasImmunity) {
+          setHasImmunityNextTime(true);
+        }
       }
     });
 
@@ -593,12 +604,26 @@ export default function LobbyPage() {
           {/* PURGE PHASE */}
           {(lobby?.phase === 'purging' || purgeActive) && (
             <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center">
-              <div className="text-center">
+              <div className="text-center max-w-3xl px-4">
                 {purgeCountdown > 0 && !purgeComplete && (
                   <>
                     <div className="text-red-500 font-display text-6xl mb-4 animate-pulse">⚡ THE PURGE ⚡</div>
                     <div className="text-9xl font-display text-white mb-4">{purgeCountdown}</div>
                     <p className="text-red-400 text-xl">{lobby?.purgeData?.originalCount - lobby?.purgeData?.targetCount} players will be eliminated...</p>
+                    
+                    {/* Show immune players */}
+                    {immunePlayers.length > 0 && (
+                      <div className="mt-6 bg-green-500/20 border border-green-500/50 rounded-xl p-4">
+                        <div className="text-green-400 font-semibold mb-2">🛡️ IMMUNE PLAYERS</div>
+                        <div className="flex flex-wrap justify-center gap-2">
+                          {immunePlayers.map(p => (
+                            <span key={p.odiscordId} className="px-3 py-1 bg-green-500/30 rounded-full text-green-300">
+                              {p.username}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
                 
@@ -629,6 +654,12 @@ export default function LobbyPage() {
                       <>
                         <div className="text-red-500 font-display text-6xl">💀 ELIMINATED 💀</div>
                         <p className="text-red-400 text-xl">Better luck next time...</p>
+                        {hasImmunityNextTime && (
+                          <div className="mt-4 bg-green-500/20 border border-green-500/50 rounded-xl p-4">
+                            <div className="text-green-400 font-semibold">🛡️ IMMUNITY GRANTED</div>
+                            <p className="text-green-300 text-sm">You cannot be purged in the next lobby!</p>
+                          </div>
+                        )}
                       </>
                     )}
                   </div>
