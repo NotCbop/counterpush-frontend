@@ -68,10 +68,11 @@ export default function Browse() {
                     <span className="font-mono text-2xl tracking-widest gradient-text">{lobby.id}</span>
                     <span className={`px-3 py-1 rounded-lg text-sm ${
                       lobby.playerCount >= lobby.maxPlayers 
-                        ? 'bg-red-500/20 text-red-400' 
+                        ? 'bg-yellow-500/20 text-yellow-400' 
                         : 'bg-green-500/20 text-green-400'
                     }`}>
                       {lobby.playerCount}/{lobby.maxPlayers}
+                      {lobby.playerCount >= lobby.maxPlayers && ' ⚡'}
                     </span>
                   </div>
                   
@@ -96,9 +97,9 @@ export default function Browse() {
                   {session ? (
                     <Link 
                       href={`/lobby/${lobby.id}`} 
-                      className={`btn-primary w-full text-center block ${lobby.playerCount >= lobby.maxPlayers ? 'opacity-50 pointer-events-none' : ''}`}
+                      className="btn-primary w-full text-center block"
                     >
-                      {lobby.playerCount >= lobby.maxPlayers ? 'Lobby Full' : 'Join Lobby'}
+                      {lobby.playerCount >= lobby.maxPlayers ? 'Join (Purge Mode ⚡)' : 'Join Lobby'}
                     </Link>
                   ) : (
                     <button onClick={() => signIn('discord')} className="btn-primary w-full">
