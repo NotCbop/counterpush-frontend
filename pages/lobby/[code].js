@@ -16,6 +16,19 @@ export default function LobbyPage() {
   const [loading, setLoading] = useState(true);
   const [vcStatus, setVcStatus] = useState({ playersInVC: [], allInVC: false });
   const [selectedPlayer, setSelectedPlayer] = useState(null);
+  
+  // Purge state
+  const [purgeActive, setPurgeActive] = useState(false);
+  const [purgeCountdown, setPurgeCountdown] = useState(5);
+  const [eliminatedPlayers, setEliminatedPlayers] = useState([]);
+  const [purgeComplete, setPurgeComplete] = useState(false);
+  const [isSurvivor, setIsSurvivor] = useState(false);
+  const [isEliminated, setIsEliminated] = useState(false);
+
+  // Sound refs
+  const countdownSound = typeof Audio !== 'undefined' ? new Audio('/purge-countdown.mp3') : null;
+  const eliminatedSound = typeof Audio !== 'undefined' ? new Audio('/purge-eliminated.mp3') : null;
+  const survivedSound = typeof Audio !== 'undefined' ? new Audio('/purge-survived.mp3') : null;
 
   const getCurrentUser = useCallback(() => {
     if (session) {
@@ -98,6 +111,74 @@ export default function LobbyPage() {
 
     newSocket.on('vcStatus', (status) => {
       setVcStatus(status);
+    });
+
+    // Purge events
+    newSocket.on('purgeStart', ({ totalPlayers, targetPlayers, toEliminate }) => {
+      setPurgeActive(true);
+      setPurgeCountdown(5);
+      setEliminatedPlayers([]);
+      setPurgeComplete(false);
+      setIsSurvivor(false);
+      setIsEliminated(false);
+      
+      // Play countdown sound
+      if (countdownSound) {
+        countdownSound.play().catch(() => {});
+      }
+      
+      // Countdown timer
+      let count = 5;
+      const countdownInterval = setInterval(() => {
+        count--;
+        setPurgeCountdown(count);
+        if (count <= 0) {
+          clearInterval(countdownInterval);
+        }
+      }, 1000);
+    });
+
+    newSocket.on('playerEliminated', ({ player, index, total }) => {
+      setEliminatedPlayers(prev => [...prev, player]);
+      
+      // Play elimination sound
+      if (eliminatedSound) {
+        eliminatedSound.currentTime = 0;
+        eliminatedSound.play().catch(() => {});
+      }
+      
+      // Check if current user was eliminated
+      const currentUser = session?.user?.discordId;
+      if (currentUser && player.odiscordId === currentUser) {
+        setIsEliminated(true);
+      }
+    });
+
+    newSocket.on('purgeComplete', ({ survivors }) => {
+      setPurgeComplete(true);
+      setPurgeActive(false);
+      
+      // Check if current user survived
+      const currentUser = session?.user?.discordId;
+      if (currentUser && survivors.some(p => p.odiscordId === currentUser)) {
+        setIsSurvivor(true);
+        // Play survived sound
+        if (survivedSound) {
+          survivedSound.play().catch(() => {});
+        }
+      } else if (currentUser && isEliminated) {
+        // Eliminated player gets redirected after delay
+        setTimeout(() => {
+          router.push('/');
+        }, 3000);
+      }
+      
+      // Reset purge state after a delay
+      setTimeout(() => {
+        setEliminatedPlayers([]);
+        setPurgeComplete(false);
+        setIsSurvivor(false);
+      }, 3000);
     });
 
     newSocket.on('error', (err) => {
@@ -387,17 +468,31 @@ export default function LobbyPage() {
             <div className="space-y-6">
               <div className="bg-dark-800 border border-dark-600 rounded-xl p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-display text-xl">PLAYERS ({lobby.players.length}/{lobby.maxPlayers})</h2>
+                  <h2 className="font-display text-xl">
+                    PLAYERS ({lobby.players.length})
+                    {lobby.players.length > lobby.maxPlayers && (
+                      <span className="text-red-400 text-sm ml-2">⚠️ {lobby.players.length - lobby.maxPlayers} will be purged!</span>
+                    )}
+                  </h2>
                   {isHost && lobby.players.length >= 4 && (
                     <button 
                       onClick={startCaptainSelect} 
                       className="btn-primary"
                       disabled={lobby.isPublic && !vcStatus.allInVC}
                     >
-                      {lobby.isPublic && !vcStatus.allInVC ? 'Waiting for VC...' : 'Start Game'}
+                      {lobby.isPublic && !vcStatus.allInVC ? 'Waiting for VC...' : 
+                        lobby.players.length > lobby.maxPlayers ? `Start Purge (${lobby.maxPlayers} spots)` : 'Start Game'}
                     </button>
                   )}
                 </div>
+
+                {lobby.players.length > lobby.maxPlayers && (
+                  <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-3 mb-4">
+                    <p className="text-red-400 text-sm">
+                      ⚡ <strong>PURGE MODE:</strong> {lobby.players.length - lobby.maxPlayers} random player{lobby.players.length - lobby.maxPlayers > 1 ? 's' : ''} will be eliminated when the game starts!
+                    </p>
+                  </div>
+                )}
 
                 {lobby.players.length > 0 ? (
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -413,6 +508,53 @@ export default function LobbyPage() {
               <div className="bg-dark-800 border border-dark-600 rounded-xl p-6 text-center">
                 <p className="text-gray-400 mb-4">Share this code:</p>
                 <div className="font-mono text-4xl font-bold tracking-widest gradient-text">{lobby.id}</div>
+              </div>
+            </div>
+          )}
+
+          {/* PURGE PHASE */}
+          {(lobby?.phase === 'purging' || purgeActive) && (
+            <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center">
+              <div className="text-center">
+                {purgeCountdown > 0 && !purgeComplete && (
+                  <>
+                    <div className="text-red-500 font-display text-6xl mb-4 animate-pulse">⚡ THE PURGE ⚡</div>
+                    <div className="text-9xl font-display text-white mb-4">{purgeCountdown}</div>
+                    <p className="text-red-400 text-xl">{lobby?.purgeData?.originalCount - lobby?.purgeData?.targetCount} players will be eliminated...</p>
+                  </>
+                )}
+                
+                {purgeCountdown <= 0 && !purgeComplete && (
+                  <div className="space-y-6">
+                    <div className="text-red-500 font-display text-4xl animate-pulse">ELIMINATING...</div>
+                    <div className="flex flex-wrap justify-center gap-4 max-w-2xl">
+                      {eliminatedPlayers.map((player, i) => (
+                        <div key={player.odiscordId} className="bg-red-500/30 border border-red-500 rounded-xl p-4 animate-bounce">
+                          <img src={player.avatar || `https://ui-avatars.com/api/?name=${player.username}`} className="w-16 h-16 rounded-full mx-auto mb-2 opacity-50" />
+                          <div className="text-red-400 font-semibold">{player.username}</div>
+                          <div className="text-red-500 text-xs">ELIMINATED</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {purgeComplete && (
+                  <div className="space-y-6">
+                    {isSurvivor && (
+                      <>
+                        <div className="text-green-500 font-display text-6xl">🎉 YOU SURVIVED! 🎉</div>
+                        <p className="text-green-400 text-xl">ur a lucky boi!</p>
+                      </>
+                    )}
+                    {isEliminated && (
+                      <>
+                        <div className="text-red-500 font-display text-6xl">💀 PURGED 💀</div>
+                        <p className="text-red-400 text-xl">Better luck next time...</p>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
