@@ -328,6 +328,11 @@ export default function LobbyPage() {
       socket.emit('declareWinner', { lobbyId: lobby.id, winnerTeam });
     }
   };
+  const declareDraw = () => {
+    if (confirm('Declare this match as a draw? No ELO changes will be made.')) {
+      socket.emit('declareDraw', { lobbyId: lobby.id });
+    }
+  };
   const resetLobby = () => socket.emit('resetLobby', { lobbyId: lobby.id });
   const closeLobby = () => {
     if (confirm('Close this lobby?')) {
@@ -992,12 +997,17 @@ export default function LobbyPage() {
                     {isHost ? (
                       <div className="space-y-4">
                         <p className="text-gray-400 mb-4">Select the winning team:</p>
-                        <div className="flex justify-center gap-4">
+                        <div className="flex justify-center gap-4 flex-wrap">
                           <button onClick={() => declareWinner('team1')} className="px-8 py-4 bg-blue-600 hover:bg-blue-500 rounded-xl text-lg font-semibold transition-all hover:scale-105">
                             🔵 Team 1 Wins
                           </button>
                           <button onClick={() => declareWinner('team2')} className="px-8 py-4 bg-red-600 hover:bg-red-500 rounded-xl text-lg font-semibold transition-all hover:scale-105">
                             🔴 Team 2 Wins
+                          </button>
+                        </div>
+                        <div className="mt-4">
+                          <button onClick={declareDraw} className="px-6 py-3 bg-gray-600 hover:bg-gray-500 rounded-xl font-semibold transition-all">
+                            🤝 Declare Draw
                           </button>
                         </div>
                       </div>
@@ -1009,9 +1019,15 @@ export default function LobbyPage() {
 
                 {lobby.phase === 'finished' && (
                   <>
-                    <div className={`font-display text-3xl mb-4 ${lobby.score.team1 > lobby.score.team2 ? 'text-blue-400' : 'text-red-400'}`}>
-                      🏆 {lobby.score.team1 > lobby.score.team2 ? 'TEAM 1' : 'TEAM 2'} WINS! 🏆
-                    </div>
+                    {lobby.isDraw ? (
+                      <div className="font-display text-3xl mb-4 text-gray-400">
+                        🤝 MATCH DRAW 🤝
+                      </div>
+                    ) : (
+                      <div className={`font-display text-3xl mb-4 ${lobby.score.team1 > lobby.score.team2 ? 'text-blue-400' : 'text-red-400'}`}>
+                        🏆 {lobby.score.team1 > lobby.score.team2 ? 'TEAM 1' : 'TEAM 2'} WINS! 🏆
+                      </div>
+                    )}
                     {isHost && (
                       <button onClick={resetLobby} className="btn-primary mt-4">Start New Game</button>
                     )}
