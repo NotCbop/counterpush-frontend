@@ -25,10 +25,22 @@ export default function LobbyPage() {
   const [isSurvivor, setIsSurvivor] = useState(false);
   const [isEliminated, setIsEliminated] = useState(false);
 
+  // Market state
+  const [auctionPlayer, setAuctionPlayer] = useState(null);
+  const [auctionTimer, setAuctionTimer] = useState(30);
+  const [currentBids, setCurrentBids] = useState({ team1: 0, team2: 0 });
+  const [team1Budget, setTeam1Budget] = useState(1000);
+  const [team2Budget, setTeam2Budget] = useState(1000);
+  const [bidAmount, setBidAmount] = useState(0);
+  const [auctionWinner, setAuctionWinner] = useState(null);
+
   // Sound refs
   const countdownSound = typeof Audio !== 'undefined' ? new Audio('/purge-countdown.mp3') : null;
   const eliminatedSound = typeof Audio !== 'undefined' ? new Audio('/purge-eliminated.mp3') : null;
   const survivedSound = typeof Audio !== 'undefined' ? new Audio('/purge-survived.mp3') : null;
+  const draftPickSound = typeof Audio !== 'undefined' ? new Audio('/draft-pick.mp3') : null;
+  const bidSound = typeof Audio !== 'undefined' ? new Audio('/bid.mp3') : null;
+  const auctionWonSound = typeof Audio !== 'undefined' ? new Audio('/auction-won.mp3') : null;
 
   const getCurrentUser = useCallback(() => {
     if (session) {
@@ -89,6 +101,14 @@ export default function LobbyPage() {
 
     newSocket.on('lobbyUpdate', (lobbyData) => {
       setLobby(lobbyData);
+    });
+
+    newSocket.on('draftPick', ({ player, team }) => {
+      // Play draft pick sound
+      if (draftPickSound) {
+        draftPickSound.currentTime = 0;
+        draftPickSound.play().catch(() => {});
+      }
     });
 
     newSocket.on('rejoinedLobby', (lobbyData) => {
@@ -181,6 +201,50 @@ export default function LobbyPage() {
       }, 3000);
     });
 
+    // Market mode events
+    newSocket.on('auctionStart', ({ player, timerEnd, team1Budget: t1, team2Budget: t2, playersRemaining }) => {
+      setAuctionPlayer(player);
+      setAuctionWinner(null);
+      setCurrentBids({ team1: 0, team2: 0 });
+      setTeam1Budget(t1);
+      setTeam2Budget(t2);
+      setBidAmount(0);
+      
+      // Start countdown timer
+      const updateTimer = () => {
+        const remaining = Math.max(0, Math.ceil((timerEnd - Date.now()) / 1000));
+        setAuctionTimer(remaining);
+        if (remaining > 0) {
+          setTimeout(updateTimer, 100);
+        }
+      };
+      updateTimer();
+    });
+
+    newSocket.on('bidUpdate', ({ team, amount, currentBids: bids }) => {
+      setCurrentBids(bids);
+      if (bidSound) {
+        bidSound.currentTime = 0;
+        bidSound.play().catch(() => {});
+      }
+    });
+
+    newSocket.on('auctionEnd', ({ player, winningTeam, winningBid, team1Budget: t1, team2Budget: t2 }) => {
+      setAuctionWinner({ player, winningTeam, winningBid });
+      setTeam1Budget(t1);
+      setTeam2Budget(t2);
+      
+      if (auctionWonSound) {
+        auctionWonSound.play().catch(() => {});
+      }
+      
+      // Clear auction player after delay
+      setTimeout(() => {
+        setAuctionPlayer(null);
+        setAuctionWinner(null);
+      }, 2000);
+    });
+
     newSocket.on('error', (err) => {
       setError(err.message);
       setLoading(false);
@@ -209,6 +273,7 @@ export default function LobbyPage() {
   const selectCaptain = (odiscordId) => socket.emit('selectCaptain', { lobbyId: lobby.id, odiscordId });
   const removeCaptain = (odiscordId) => socket.emit('removeCaptain', { lobbyId: lobby.id, odiscordId });
   const draftPick = (odiscordId) => socket.emit('draftPick', { lobbyId: lobby.id, odiscordId });
+  const placeBid = (amount) => socket.emit('placeBid', { lobbyId: lobby.id, amount });
   const addScore = (team) => socket.emit('addScore', { lobbyId: lobby.id, team });
   const declareWinner = (winnerTeam) => {
     if (confirm(`Declare ${winnerTeam === 'team1' ? 'Team 1' : 'Team 2'} as winner?`)) {
@@ -426,12 +491,14 @@ export default function LobbyPage() {
               <div className={`px-4 py-2 rounded-lg font-semibold text-sm ${
                 lobby?.phase === 'waiting' ? 'bg-yellow-500/20 text-yellow-400' :
                 lobby?.phase === 'drafting' ? 'bg-blue-500/20 text-blue-400' :
+                lobby?.phase === 'market' ? 'bg-yellow-500/20 text-yellow-400' :
                 lobby?.phase === 'playing' ? 'bg-green-500/20 text-green-400' :
                 lobby?.phase === 'finished' ? 'bg-gray-500/20 text-gray-400' : ''
               }`} style={lobby?.phase === 'captain-select' ? { backgroundColor: 'rgba(156, 237, 35, 0.2)', color: '#9ced23' } : {}}>
                 {lobby?.phase === 'waiting' && 'Waiting for Players'}
                 {lobby?.phase === 'captain-select' && 'Selecting Captains'}
                 {lobby?.phase === 'drafting' && 'Draft in Progress'}
+                {lobby?.phase === 'market' && '💰 Market in Progress'}
                 {lobby?.phase === 'playing' && 'Match in Progress'}
                 {lobby?.phase === 'finished' && 'Match Complete'}
               </div>
@@ -466,6 +533,17 @@ export default function LobbyPage() {
           {/* WAITING PHASE */}
           {lobby?.phase === 'waiting' && (
             <div className="space-y-6">
+              {/* Draft Mode Indicator */}
+              <div className={`rounded-xl p-4 text-center ${lobby.draftMode === 'market' ? 'bg-yellow-500/20 border border-yellow-500/30' : 'bg-blue-500/20 border border-blue-500/30'}`}>
+                <span className="text-2xl mr-2">{lobby.draftMode === 'market' ? '💰' : '🎯'}</span>
+                <span className={`font-display text-lg ${lobby.draftMode === 'market' ? 'text-yellow-400' : 'text-blue-400'}`}>
+                  {lobby.draftMode === 'market' ? 'MARKET MODE' : 'DRAFT MODE'}
+                </span>
+                <p className="text-sm text-gray-400 mt-1">
+                  {lobby.draftMode === 'market' ? 'Captains will bid coins on players' : 'Captains will take turns picking players'}
+                </p>
+              </div>
+
               <div className="bg-dark-800 border border-dark-600 rounded-xl p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="font-display text-xl">
@@ -544,12 +622,12 @@ export default function LobbyPage() {
                     {isSurvivor && (
                       <>
                         <div className="text-green-500 font-display text-6xl">🎉 YOU SURVIVED! 🎉</div>
-                        <p className="text-green-400 text-xl">ur a lucky boi!</p>
+                        <p className="text-green-400 text-xl">Prepare for battle!</p>
                       </>
                     )}
                     {isEliminated && (
                       <>
-                        <div className="text-red-500 font-display text-6xl">💀 PURGED 💀</div>
+                        <div className="text-red-500 font-display text-6xl">💀 ELIMINATED 💀</div>
                         <p className="text-red-400 text-xl">Better luck next time...</p>
                       </>
                     )}
@@ -656,6 +734,158 @@ export default function LobbyPage() {
                   {getAvailablePlayers().map(player => (
                     <PlayerCard key={player.odiscordId} player={player} selectable={isMyTurn} onClick={draftPick} />
                   ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* MARKET PHASE */}
+          {lobby?.phase === 'market' && (
+            <div className="space-y-6">
+              {/* Budgets */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-blue-500/20 border border-blue-500/50 rounded-xl p-4 text-center">
+                  <div className="text-blue-400 text-sm">Team 1 Budget</div>
+                  <div className="font-display text-3xl text-blue-400">💰 {team1Budget}</div>
+                </div>
+                <div className="bg-red-500/20 border border-red-500/50 rounded-xl p-4 text-center">
+                  <div className="text-red-400 text-sm">Team 2 Budget</div>
+                  <div className="font-display text-3xl text-red-400">💰 {team2Budget}</div>
+                </div>
+              </div>
+
+              {/* Current Auction */}
+              {auctionPlayer && !auctionWinner && (
+                <div className="bg-dark-800 border border-yellow-500/50 rounded-xl p-6">
+                  <div className="text-center mb-4">
+                    <div className="text-yellow-400 text-sm mb-2">NOW BIDDING</div>
+                    <div className={`inline-block px-4 py-2 rounded-full text-2xl font-display ${
+                      auctionTimer <= 5 ? 'bg-red-500/30 text-red-400 animate-pulse' : 'bg-yellow-500/20 text-yellow-400'
+                    }`}>
+                      ⏱️ {auctionTimer}s
+                    </div>
+                  </div>
+
+                  {/* Player Card */}
+                  <div className="bg-dark-700 rounded-xl p-6 mb-6">
+                    <div className="flex items-center gap-6">
+                      <div className="w-24 h-24 rounded-full bg-dark-600 overflow-hidden">
+                        {auctionPlayer.avatar ? (
+                          <img src={auctionPlayer.avatar} alt="" className="w-full h-full" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-3xl">
+                            {auctionPlayer.username[0]}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-display text-2xl mb-2">{auctionPlayer.username}</div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                          <div>
+                            <div className="text-gray-500">ELO</div>
+                            <div className="font-mono text-lg">{auctionPlayer.elo}</div>
+                          </div>
+                          <div>
+                            <div className="text-gray-500">Rank</div>
+                            <div className="font-display text-lg">{auctionPlayer.rank}</div>
+                          </div>
+                          <div>
+                            <div className="text-gray-500">KDR</div>
+                            <div className="font-mono text-lg text-green-400">{auctionPlayer.kdr}</div>
+                          </div>
+                          <div>
+                            <div className="text-gray-500">Leaderboard</div>
+                            <div className="font-mono text-lg">#{auctionPlayer.leaderboardRank}</div>
+                          </div>
+                        </div>
+                        <div className="flex gap-4 mt-2 text-sm">
+                          <div><span className="text-gray-500">Kills:</span> <span className="text-green-400">{auctionPlayer.totalKills}</span></div>
+                          <div><span className="text-gray-500">Deaths:</span> <span className="text-red-400">{auctionPlayer.totalDeaths}</span></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Current Bids */}
+                  <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div className={`p-4 rounded-xl text-center ${currentBids.team1 >= currentBids.team2 && currentBids.team1 > 0 ? 'bg-blue-500/30 border-2 border-blue-500' : 'bg-dark-700'}`}>
+                      <div className="text-blue-400 text-sm">Team 1 Bid</div>
+                      <div className="font-display text-3xl">{currentBids.team1}</div>
+                    </div>
+                    <div className={`p-4 rounded-xl text-center ${currentBids.team2 > currentBids.team1 ? 'bg-red-500/30 border-2 border-red-500' : 'bg-dark-700'}`}>
+                      <div className="text-red-400 text-sm">Team 2 Bid</div>
+                      <div className="font-display text-3xl">{currentBids.team2}</div>
+                    </div>
+                  </div>
+
+                  {/* Bid Controls - Only for captains */}
+                  {(lobby.teams.team1[0]?.odiscordId === getCurrentUser()?.odiscordId || 
+                    lobby.teams.team2[0]?.odiscordId === getCurrentUser()?.odiscordId) && (
+                    <div className="bg-dark-700 rounded-xl p-4">
+                      <div className="flex items-center gap-4">
+                        <input
+                          type="number"
+                          value={bidAmount}
+                          onChange={(e) => setBidAmount(Math.max(0, parseInt(e.target.value) || 0))}
+                          placeholder="Enter bid amount"
+                          className="flex-1 px-4 py-3 bg-dark-600 rounded-lg text-center font-mono text-xl"
+                          min="0"
+                          max={lobby.teams.team1[0]?.odiscordId === getCurrentUser()?.odiscordId ? team1Budget : team2Budget}
+                        />
+                        <button 
+                          onClick={() => placeBid(bidAmount)}
+                          className="px-8 py-3 bg-yellow-500 hover:bg-yellow-400 text-black font-semibold rounded-lg transition-all"
+                        >
+                          BID 💰
+                        </button>
+                      </div>
+                      <div className="flex justify-center gap-2 mt-3">
+                        {[10, 25, 50, 100, 200].map(amt => (
+                          <button
+                            key={amt}
+                            onClick={() => setBidAmount(bidAmount + amt)}
+                            className="px-3 py-1 bg-dark-600 hover:bg-dark-500 rounded text-sm"
+                          >
+                            +{amt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Auction Winner */}
+              {auctionWinner && (
+                <div className="bg-dark-800 border border-green-500 rounded-xl p-6 text-center">
+                  <div className="text-green-400 font-display text-2xl mb-2">SOLD!</div>
+                  <div className="text-xl">
+                    <span className="font-semibold">{auctionWinner.player.username}</span> goes to{' '}
+                    <span className={auctionWinner.winningTeam === 'team1' ? 'text-blue-400' : 'text-red-400'}>
+                      {auctionWinner.winningTeam === 'team1' ? 'Team 1' : 'Team 2'}
+                    </span>
+                    {' '}for <span className="text-yellow-400">{auctionWinner.winningBid} coins</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Teams */}
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="bg-dark-800 border border-blue-500/30 rounded-xl p-6">
+                  <h3 className="font-display text-xl text-blue-400 mb-4">TEAM 1 ({lobby.teams.team1.length}/{lobby.maxPlayers / 2})</h3>
+                  <div className="space-y-3">
+                    {lobby.teams.team1.map((player, i) => (
+                      <PlayerCard key={player.odiscordId} player={player} isCaptain={i === 0} />
+                    ))}
+                  </div>
+                </div>
+                <div className="bg-dark-800 border border-red-500/30 rounded-xl p-6">
+                  <h3 className="font-display text-xl text-red-400 mb-4">TEAM 2 ({lobby.teams.team2.length}/{lobby.maxPlayers / 2})</h3>
+                  <div className="space-y-3">
+                    {lobby.teams.team2.map((player, i) => (
+                      <PlayerCard key={player.odiscordId} player={player} isCaptain={i === 0} />
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
