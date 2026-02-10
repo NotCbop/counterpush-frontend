@@ -99,10 +99,40 @@ export default function LobbyPage() {
     newSocket.on('lobbyJoined', (lobbyData) => {
       setLobby(lobbyData);
       setLoading(false);
+      
+      // Sync market state if in market phase
+      if (lobbyData.phase === 'market' && lobbyData.market) {
+        setTeam1Budget(lobbyData.market.team1Budget);
+        setTeam2Budget(lobbyData.market.team2Budget);
+        setCurrentBids(lobbyData.market.currentBids || { team1: 0, team2: 0 });
+        if (lobbyData.market.currentPlayer) {
+          setAuctionPlayer(lobbyData.market.currentPlayer);
+          if (lobbyData.market.timerEnd) {
+            const remaining = Math.max(0, Math.ceil((lobbyData.market.timerEnd - Date.now()) / 1000));
+            setAuctionTimer(remaining);
+          }
+        }
+      }
     });
 
     newSocket.on('lobbyUpdate', (lobbyData) => {
       setLobby(lobbyData);
+      
+      // Sync market state if in market phase
+      if (lobbyData.phase === 'market' && lobbyData.market) {
+        setTeam1Budget(lobbyData.market.team1Budget);
+        setTeam2Budget(lobbyData.market.team2Budget);
+        if (lobbyData.market.currentBids) {
+          setCurrentBids(lobbyData.market.currentBids);
+        }
+        if (lobbyData.market.currentPlayer && !auctionPlayer) {
+          setAuctionPlayer(lobbyData.market.currentPlayer);
+          if (lobbyData.market.timerEnd) {
+            const remaining = Math.max(0, Math.ceil((lobbyData.market.timerEnd - Date.now()) / 1000));
+            setAuctionTimer(remaining);
+          }
+        }
+      }
     });
 
     newSocket.on('draftPick', ({ player, team }) => {
@@ -220,6 +250,13 @@ export default function LobbyPage() {
       setTeam1Budget(t1);
       setTeam2Budget(t2);
       setBidAmount(0);
+      setAuctionTimer(30);
+      
+      // Play a sound when new player comes up (reuse draft pick sound)
+      if (draftPickSound) {
+        draftPickSound.currentTime = 0;
+        draftPickSound.play().catch(() => {});
+      }
       
       // Start countdown timer
       const updateTimer = () => {
@@ -244,14 +281,14 @@ export default function LobbyPage() {
       setAuctionWinner({ player, winningTeam, winningBid });
       setTeam1Budget(t1);
       setTeam2Budget(t2);
+      setAuctionPlayer(null); // Clear current player
       
       if (auctionWonSound) {
         auctionWonSound.play().catch(() => {});
       }
       
-      // Clear auction player after delay
+      // Clear winner display after delay
       setTimeout(() => {
-        setAuctionPlayer(null);
         setAuctionWinner(null);
       }, 2000);
     });
@@ -919,6 +956,27 @@ export default function LobbyPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Remaining Players */}
+              {lobby.market?.playersRemaining && lobby.market.playersRemaining.length > 0 && (
+                <div className="bg-dark-800 border border-dark-600 rounded-xl p-6">
+                  <h3 className="font-display text-xl text-gray-400 mb-4">
+                    WAITING TO BE AUCTIONED ({lobby.market.playersRemaining.length})
+                  </h3>
+                  <div className="flex flex-wrap gap-3">
+                    {lobby.market.playersRemaining.map(player => (
+                      <div key={player.odiscordId} className="flex items-center gap-2 bg-dark-700 rounded-lg px-3 py-2">
+                        <img 
+                          src={player.avatar || `https://ui-avatars.com/api/?name=${player.username}`} 
+                          className="w-8 h-8 rounded-full"
+                          alt=""
+                        />
+                        <span className="text-gray-300">{player.username}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
