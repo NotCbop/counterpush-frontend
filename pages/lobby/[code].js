@@ -28,11 +28,11 @@ export default function LobbyPage() {
   const [hasImmunityNextTime, setHasImmunityNextTime] = useState(false);
 
   // Market state
-  const [auctionPlayer, setAuctionPlayer] = useState(null);
-  const [auctionTimer, setAuctionTimer] = useState(30);
+  const [auctionPlayers, setAuctionPlayers] = useState([]); // Now array of 2 players
+  const [auctionTimer, setAuctionTimer] = useState(20);
   const [currentBids, setCurrentBids] = useState({ team1: 0, team2: 0 });
-  const [team1Budget, setTeam1Budget] = useState(1000);
-  const [team2Budget, setTeam2Budget] = useState(1000);
+  const [team1Budget, setTeam1Budget] = useState(500);
+  const [team2Budget, setTeam2Budget] = useState(500);
   const [bidAmount, setBidAmount] = useState(0);
   const [auctionWinner, setAuctionWinner] = useState(null);
 
@@ -43,6 +43,7 @@ export default function LobbyPage() {
   const draftPickSound = typeof Audio !== 'undefined' ? new Audio('/draft-pick.mp3') : null;
   const bidSound = typeof Audio !== 'undefined' ? new Audio('/bid.mp3') : null;
   const auctionWonSound = typeof Audio !== 'undefined' ? new Audio('/auction-won.mp3') : null;
+  const timerExtendSound = typeof Audio !== 'undefined' ? new Audio('/timer-extend.mp3') : null;
 
   const getCurrentUser = useCallback(() => {
     if (session) {
@@ -105,8 +106,8 @@ export default function LobbyPage() {
         setTeam1Budget(lobbyData.market.team1Budget);
         setTeam2Budget(lobbyData.market.team2Budget);
         setCurrentBids(lobbyData.market.currentBids || { team1: 0, team2: 0 });
-        if (lobbyData.market.currentPlayer) {
-          setAuctionPlayer(lobbyData.market.currentPlayer);
+        if (lobbyData.market.currentPlayers?.length > 0) {
+          setAuctionPlayers(lobbyData.market.currentPlayers);
           if (lobbyData.market.timerEnd) {
             const remaining = Math.max(0, Math.ceil((lobbyData.market.timerEnd - Date.now()) / 1000));
             setAuctionTimer(remaining);
@@ -125,8 +126,8 @@ export default function LobbyPage() {
         if (lobbyData.market.currentBids) {
           setCurrentBids(lobbyData.market.currentBids);
         }
-        if (lobbyData.market.currentPlayer && !auctionPlayer) {
-          setAuctionPlayer(lobbyData.market.currentPlayer);
+        if (lobbyData.market.currentPlayers?.length > 0 && auctionPlayers.length === 0) {
+          setAuctionPlayers(lobbyData.market.currentPlayers);
           if (lobbyData.market.timerEnd) {
             const remaining = Math.max(0, Math.ceil((lobbyData.market.timerEnd - Date.now()) / 1000));
             setAuctionTimer(remaining);
@@ -243,45 +244,59 @@ export default function LobbyPage() {
     });
 
     // Market mode events
-    newSocket.on('auctionStart', ({ player, timerEnd, team1Budget: t1, team2Budget: t2, playersRemaining }) => {
-      setAuctionPlayer(player);
+    newSocket.on('auctionStart', ({ players, timerEnd, team1Budget: t1, team2Budget: t2, playersRemaining }) => {
+      setAuctionPlayers(players);
       setAuctionWinner(null);
       setCurrentBids({ team1: 0, team2: 0 });
       setTeam1Budget(t1);
       setTeam2Budget(t2);
       setBidAmount(0);
-      setAuctionTimer(30);
+      setAuctionTimer(20);
       
-      // Play a sound when new player comes up (reuse draft pick sound)
+      // Play a sound when new players come up (reuse draft pick sound)
       if (draftPickSound) {
         draftPickSound.currentTime = 0;
         draftPickSound.play().catch(() => {});
       }
       
       // Start countdown timer
+      let currentTimerEnd = timerEnd;
       const updateTimer = () => {
-        const remaining = Math.max(0, Math.ceil((timerEnd - Date.now()) / 1000));
+        const remaining = Math.max(0, Math.ceil((currentTimerEnd - Date.now()) / 1000));
         setAuctionTimer(remaining);
         if (remaining > 0) {
           setTimeout(updateTimer, 100);
         }
       };
       updateTimer();
+      
+      // Store timer end ref for potential updates
+      window.currentAuctionTimerEnd = timerEnd;
     });
 
-    newSocket.on('bidUpdate', ({ team, amount, currentBids: bids }) => {
+    newSocket.on('bidUpdate', ({ team, amount, currentBids: bids, timerExtended, newTimerEnd }) => {
       setCurrentBids(bids);
       if (bidSound) {
         bidSound.currentTime = 0;
         bidSound.play().catch(() => {});
       }
+      
+      // If timer was extended, play sound and update timer
+      if (timerExtended && newTimerEnd) {
+        if (timerExtendSound) {
+          timerExtendSound.currentTime = 0;
+          timerExtendSound.play().catch(() => {});
+        }
+        window.currentAuctionTimerEnd = newTimerEnd;
+        setAuctionTimer(5);
+      }
     });
 
-    newSocket.on('auctionEnd', ({ player, winningTeam, winningBid, team1Budget: t1, team2Budget: t2 }) => {
-      setAuctionWinner({ player, winningTeam, winningBid });
+    newSocket.on('auctionEnd', ({ players, winningTeam, winningBid, team1Budget: t1, team2Budget: t2 }) => {
+      setAuctionWinner({ players, winningTeam, winningBid });
       setTeam1Budget(t1);
       setTeam2Budget(t2);
-      setAuctionPlayer(null); // Clear current player
+      setAuctionPlayers([]); // Clear current players
       
       if (auctionWonSound) {
         auctionWonSound.play().catch(() => {});
@@ -827,11 +842,11 @@ export default function LobbyPage() {
                 </div>
               </div>
 
-              {/* Current Auction */}
-              {auctionPlayer && !auctionWinner && (
+              {/* Current Auction - Double Draft */}
+              {auctionPlayers.length > 0 && !auctionWinner && (
                 <div className="bg-dark-800 border border-yellow-500/50 rounded-xl p-6">
                   <div className="text-center mb-4">
-                    <div className="text-yellow-400 text-sm mb-2">NOW BIDDING</div>
+                    <div className="text-yellow-400 text-sm mb-2">NOW BIDDING ON {auctionPlayers.length} PLAYER{auctionPlayers.length > 1 ? 'S' : ''}</div>
                     <div className={`inline-block px-4 py-2 rounded-full text-2xl font-display ${
                       auctionTimer <= 5 ? 'bg-red-500/30 text-red-400 animate-pulse' : 'bg-yellow-500/20 text-yellow-400'
                     }`}>
@@ -839,44 +854,44 @@ export default function LobbyPage() {
                     </div>
                   </div>
 
-                  {/* Player Card */}
-                  <div className="bg-dark-700 rounded-xl p-6 mb-6">
-                    <div className="flex items-center gap-6">
-                      <div className="w-24 h-24 rounded-full bg-dark-600 overflow-hidden">
-                        {auctionPlayer.avatar ? (
-                          <img src={auctionPlayer.avatar} alt="" className="w-full h-full" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-3xl">
-                            {auctionPlayer.username[0]}
+                  {/* Player Cards - Side by side for double draft */}
+                  <div className={`grid ${auctionPlayers.length > 1 ? 'md:grid-cols-2' : 'grid-cols-1'} gap-4 mb-6`}>
+                    {auctionPlayers.map((player, idx) => (
+                      <div key={player.odiscordId} className="bg-dark-700 rounded-xl p-4">
+                        <div className="flex items-center gap-4">
+                          <div className="w-16 h-16 rounded-full bg-dark-600 overflow-hidden flex-shrink-0">
+                            {player.avatar ? (
+                              <img src={player.avatar} alt="" className="w-full h-full" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-2xl">
+                                {player.username[0]}
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-display text-2xl mb-2">{auctionPlayer.username}</div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                          <div>
-                            <div className="text-gray-500">ELO</div>
-                            <div className="font-mono text-lg">{auctionPlayer.elo}</div>
-                          </div>
-                          <div>
-                            <div className="text-gray-500">Rank</div>
-                            <div className="font-display text-lg">{auctionPlayer.rank}</div>
-                          </div>
-                          <div>
-                            <div className="text-gray-500">KDR</div>
-                            <div className="font-mono text-lg text-green-400">{auctionPlayer.kdr}</div>
-                          </div>
-                          <div>
-                            <div className="text-gray-500">Leaderboard</div>
-                            <div className="font-mono text-lg">#{auctionPlayer.leaderboardRank}</div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-display text-xl truncate">{player.username}</div>
+                            <div className="grid grid-cols-2 gap-2 text-sm mt-2">
+                              <div>
+                                <span className="text-gray-500">ELO:</span> <span className="font-mono">{player.elo}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">Rank:</span> <span className="font-display">{player.rank}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">KDR:</span> <span className="font-mono text-green-400">{player.kdr}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">LB:</span> <span className="font-mono">#{player.leaderboardRank}</span>
+                              </div>
+                            </div>
+                            <div className="flex gap-3 mt-1 text-xs">
+                              <span><span className="text-gray-500">K:</span> <span className="text-green-400">{player.totalKills}</span></span>
+                              <span><span className="text-gray-500">D:</span> <span className="text-red-400">{player.totalDeaths}</span></span>
+                            </div>
                           </div>
                         </div>
-                        <div className="flex gap-4 mt-2 text-sm">
-                          <div><span className="text-gray-500">Kills:</span> <span className="text-green-400">{auctionPlayer.totalKills}</span></div>
-                          <div><span className="text-gray-500">Deaths:</span> <span className="text-red-400">{auctionPlayer.totalDeaths}</span></div>
-                        </div>
                       </div>
-                    </div>
+                    ))}
                   </div>
 
                   {/* Current Bids */}
@@ -913,7 +928,7 @@ export default function LobbyPage() {
                         </button>
                       </div>
                       <div className="flex justify-center gap-2 mt-3">
-                        {[10, 25, 50, 100, 200].map(amt => (
+                        {[5, 10, 25, 50, 100].map(amt => (
                           <button
                             key={amt}
                             onClick={() => setBidAmount(bidAmount + amt)}
@@ -933,7 +948,9 @@ export default function LobbyPage() {
                 <div className="bg-dark-800 border border-green-500 rounded-xl p-6 text-center">
                   <div className="text-green-400 font-display text-2xl mb-2">SOLD!</div>
                   <div className="text-xl">
-                    <span className="font-semibold">{auctionWinner.player.username}</span> goes to{' '}
+                    <span className="font-semibold">
+                      {auctionWinner.players.map(p => p.username).join(' & ')}
+                    </span> go to{' '}
                     <span className={auctionWinner.winningTeam === 'team1' ? 'text-blue-400' : 'text-red-400'}>
                       {auctionWinner.winningTeam === 'team1' ? 'Team 1' : 'Team 2'}
                     </span>
