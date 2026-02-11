@@ -140,8 +140,15 @@ export default function Leaderboard() {
                       <div className="font-semibold">{player.username}</div>
                       <div className="text-sm text-gray-400">ELO: {player.elo}</div>
                     </div>
-                    <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getRankBg(player.rank)} flex items-center justify-center font-display text-sm`}>
-                      {player.rank}
+                    <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${getRankBg(player.rank)} flex items-center justify-center overflow-hidden`}>
+                      <img 
+                        src={`/ranks/${player.rank?.toLowerCase()}.png`}
+                        alt={player.rank}
+                        className="w-8 h-8 object-contain"
+                        onError={(e) => { 
+                          e.target.style.display = 'none'; 
+                        }}
+                      />
                     </div>
                   </button>
                 ))}
@@ -201,7 +208,6 @@ export default function Leaderboard() {
                         className="w-8 h-8 object-contain"
                         onError={(e) => { 
                           e.target.style.display = 'none'; 
-                          e.target.parentElement.innerHTML = `<span class="font-display text-xs">${player.rank?.substring(0, 3)}</span>`;
                         }}
                       />
                     </div>
