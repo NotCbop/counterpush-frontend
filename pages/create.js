@@ -9,7 +9,6 @@ export default function CreateLobby() {
   const router = useRouter();
   const [maxPlayers, setMaxPlayers] = useState(10);
   const [isPublic, setIsPublic] = useState(false);
-  const [draftMode, setDraftMode] = useState('draft');
   const [creating, setCreating] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [existingLobby, setExistingLobby] = useState(null);
@@ -58,7 +57,7 @@ export default function CreateLobby() {
         avatar: session.user.image
       };
 
-      socket.emit('createLobby', { userData, maxPlayers, isPublic, draftMode });
+      socket.emit('createLobby', { userData, maxPlayers, isPublic });
     });
 
     socket.on('connect_error', (err) => {
@@ -142,33 +141,6 @@ export default function CreateLobby() {
                       <div className={`w-5 h-5 rounded-full bg-white mt-0.5 transition-transform ${isPublic ? 'translate-x-6' : 'translate-x-0.5'}`} />
                     </div>
                   </label>
-                </div>
-
-                {/* Draft Mode */}
-                <div className="mb-6">
-                  <label className="block font-semibold mb-4">Draft Mode</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      onClick={() => setDraftMode('draft')}
-                      className={`py-4 px-4 rounded-lg transition-all text-left ${
-                        draftMode === 'draft' ? 'text-white' : 'bg-dark-700 text-gray-400 hover:bg-dark-600'
-                      }`}
-                      style={draftMode === 'draft' ? { background: 'linear-gradient(135deg, #9ced23 0%, #0d52ad 100%)' } : {}}
-                    >
-                      <div className="font-display text-lg">🎯 DRAFT</div>
-                      <div className="text-xs opacity-70">Captains take turns picking players</div>
-                    </button>
-                    <button
-                      onClick={() => setDraftMode('market')}
-                      className={`py-4 px-4 rounded-lg transition-all text-left ${
-                        draftMode === 'market' ? 'text-white' : 'bg-dark-700 text-gray-400 hover:bg-dark-600'
-                      }`}
-                      style={draftMode === 'market' ? { background: 'linear-gradient(135deg, #9ced23 0%, #0d52ad 100%)' } : {}}
-                    >
-                      <div className="font-display text-lg">💰 MARKET</div>
-                      <div className="text-xs opacity-70">Captains bid coins on players</div>
-                    </button>
-                  </div>
                 </div>
 
                 {/* Max Players */}
