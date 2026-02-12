@@ -120,7 +120,7 @@ export default function PlayerProfile() {
     );
   }
 
-  const winRate = player.gamesPlayed > 0 ? Math.round((player.wins / player.gamesPlayed) * 100) : 0;
+  const winRate = (player.gamesPlayed || 0) > 0 ? Math.round(((player.wins || 0) / player.gamesPlayed) * 100) : 0;
   
   // Get stats for selected class or overall
   const displayStats = selectedClass && player.classStats?.[selectedClass] 
@@ -157,7 +157,7 @@ export default function PlayerProfile() {
                   {player.avatar ? (
                     <img src={player.avatar} alt="" className="w-full h-full rounded-full" />
                   ) : (
-                    player.username[0].toUpperCase()
+                    player.username?.[0]?.toUpperCase() || '?'
                   )}
                 </div>
                 {/* Rank Badge */}
@@ -177,11 +177,11 @@ export default function PlayerProfile() {
               </div>
               
               <div className="text-center md:text-left flex-1">
-                <h1 className="font-display text-4xl mb-2">{player.username}</h1>
+                <h1 className="font-display text-4xl mb-2">{player.username || 'Unknown'}</h1>
                 <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-gray-400">
-                  <span className={`font-display text-2xl ${getRankColor(player.rank)}`}>{player.rank}</span>
+                  <span className={`font-display text-2xl ${getRankColor(player.rank)}`}>{player.rank || 'Unranked'}</span>
                   <span>•</span>
-                  <span className="font-mono text-xl">{player.elo} ELO</span>
+                  <span className="font-mono text-xl">{player.elo || 0} ELO</span>
                 </div>
               </div>
             </div>
@@ -190,15 +190,15 @@ export default function PlayerProfile() {
           {/* Stats Grid */}
           <div className="grid md:grid-cols-4 gap-4 mb-8">
             <div className="bg-dark-800 border border-dark-600 rounded-xl p-6 text-center">
-              <div className="text-3xl font-bold" style={{ color: '#9ced23' }}>{player.gamesPlayed}</div>
+              <div className="text-3xl font-bold" style={{ color: '#9ced23' }}>{player.gamesPlayed || 0}</div>
               <div className="text-gray-400 text-sm">Games Played</div>
             </div>
             <div className="bg-dark-800 border border-dark-600 rounded-xl p-6 text-center">
-              <div className="text-3xl font-bold text-green-400">{player.wins}</div>
+              <div className="text-3xl font-bold text-green-400">{player.wins || 0}</div>
               <div className="text-gray-400 text-sm">Wins</div>
             </div>
             <div className="bg-dark-800 border border-dark-600 rounded-xl p-6 text-center">
-              <div className="text-3xl font-bold text-red-400">{player.losses}</div>
+              <div className="text-3xl font-bold text-red-400">{player.losses || 0}</div>
               <div className="text-gray-400 text-sm">Losses</div>
             </div>
             <div className="bg-dark-800 border border-dark-600 rounded-xl p-6 text-center">
