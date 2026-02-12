@@ -11,7 +11,6 @@ export default function CreateLobby() {
   const [isPublic, setIsPublic] = useState(false);
   const [creating, setCreating] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
-  const [existingLobby, setExistingLobby] = useState(null);
   const [joinCode, setJoinCode] = useState('');
 
   useEffect(() => {
@@ -21,7 +20,9 @@ export default function CreateLobby() {
           const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/session/${session.user.discordId}`);
           const data = await res.json();
           if (data.lobbyId && data.lobby) {
-            setExistingLobby(data);
+            // Auto redirect to existing lobby
+            router.push(`/lobby/${data.lobbyId}`);
+            return;
           }
         } catch (e) {
           console.error('Failed to check session:', e);
@@ -33,15 +34,7 @@ export default function CreateLobby() {
     if (status !== 'loading') {
       checkExistingLobby();
     }
-  }, [session, status]);
-
-  const rejoinLobby = () => {
-    router.push(`/lobby/${existingLobby.lobbyId}`);
-  };
-
-  const clearSession = () => {
-    setExistingLobby(null);
-  };
+  }, [session, status, router]);
 
   const handleCreate = () => {
     if (!session) return;
@@ -98,28 +91,9 @@ export default function CreateLobby() {
 
       <div className="pt-24 pb-12 px-4">
         <div className="max-w-4xl mx-auto">
-          <h1 className="font-display text-4xl text-center mb-8">
-            {existingLobby ? 'ACTIVE LOBBY FOUND' : 'PLAY'}
-          </h1>
+          <h1 className="font-display text-4xl text-center mb-8">PLAY</h1>
 
-          {existingLobby && (
-            <div className="bg-dark-800 border rounded-2xl p-8 mb-6" style={{ borderColor: 'rgba(156, 237, 35, 0.5)' }}>
-              <div className="text-center">
-                <div className="text-6xl mb-4">🎮</div>
-                <h2 className="font-display text-2xl mb-2">You're in a lobby!</h2>
-                <p className="text-gray-400 mb-2">
-                  Lobby Code: <span className="font-mono text-white text-xl">{existingLobby.lobbyId}</span>
-                </p>
-                <div className="flex flex-col gap-3">
-                  <button onClick={rejoinLobby} className="btn-primary text-lg w-full">Rejoin Lobby</button>
-                  <button onClick={clearSession} className="btn-secondary text-sm text-gray-400">Leave & Create New</button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {!existingLobby && (
-            <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid md:grid-cols-2 gap-6">
               {/* Create Lobby */}
               <div className="bg-dark-800 border border-dark-600 rounded-2xl p-8">
                 <h2 className="font-display text-2xl mb-6 text-center">CREATE LOBBY</h2>
@@ -220,7 +194,6 @@ export default function CreateLobby() {
                 </div>
               </div>
             </div>
-          )}
         </div>
       </div>
     </div>

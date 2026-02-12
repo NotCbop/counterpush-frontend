@@ -14,14 +14,24 @@ const RANK_ICONS = {
   Copper: '/ranks/copper.png'
 };
 
-// Class icons
+// Class icons - custom images instead of emojis
 const CLASS_ICONS = {
-  Tank: '🛡️',
-  Brawler: '⚔️',
-  Sniper: '🎯',
-  Trickster: '🃏',
-  Support: '💚'
+  Tank: '/classes/tank.png',
+  Brawler: '/classes/brawler.png',
+  Sniper: '/classes/sniper.png',
+  Trickster: '/classes/trickster.png',
+  Support: '/classes/support.png'
 };
+
+// Class icon component
+const ClassIcon = ({ className, size = 'w-5 h-5' }) => (
+  <img 
+    src={CLASS_ICONS[className]} 
+    alt={className}
+    className={`${size} object-contain`}
+    onError={(e) => { e.target.style.display = 'none'; }}
+  />
+);
 
 export default function PlayerProfile() {
   const router = useRouter();
@@ -197,8 +207,9 @@ export default function PlayerProfile() {
           {/* Class Stats */}
           <div className="bg-dark-800 border border-dark-600 rounded-2xl p-6 mb-8">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-              <h2 className="font-display text-xl">
-                {selectedClass ? `${CLASS_ICONS[selectedClass]} ${selectedClass.toUpperCase()} STATS` : 'OVERALL STATS'}
+              <h2 className="font-display text-xl flex items-center gap-2">
+                {selectedClass && <ClassIcon className={selectedClass} size="w-6 h-6" />}
+                {selectedClass ? `${selectedClass.toUpperCase()} STATS` : 'OVERALL STATS'}
               </h2>
               
               {/* Class Selector */}
@@ -213,7 +224,7 @@ export default function PlayerProfile() {
                 >
                   All
                 </button>
-                {Object.entries(CLASS_ICONS).map(([className, icon]) => (
+                {Object.keys(CLASS_ICONS).map((className) => (
                   <button
                     key={className}
                     onClick={() => setSelectedClass(className)}
@@ -223,7 +234,7 @@ export default function PlayerProfile() {
                         : 'bg-dark-700 text-gray-400 hover:bg-dark-600'
                     }`}
                   >
-                    <span>{icon}</span>
+                    <ClassIcon className={className} size="w-5 h-5" />
                     <span className="hidden sm:inline">{className}</span>
                   </button>
                 ))}
@@ -299,7 +310,7 @@ export default function PlayerProfile() {
                           {/* Class played */}
                           {playerResult?.class && (
                             <div className={`flex items-center gap-1 text-sm ${getClassColor(playerResult.class)}`}>
-                              <span>{CLASS_ICONS[playerResult.class]}</span>
+                              <ClassIcon className={playerResult.class} size="w-4 h-4" />
                               <span>{playerResult.class}</span>
                             </div>
                           )}
@@ -353,7 +364,7 @@ export default function PlayerProfile() {
                                     : 'bg-dark-600 text-gray-400 hover:bg-dark-500'
                                 }`}
                               >
-                                {p.class && <span>{CLASS_ICONS[p.class]}</span>}
+                                {p.class && <ClassIcon className={p.class} size="w-3 h-3" />}
                                 {p.username}
                               </Link>
                             ))}
@@ -372,7 +383,7 @@ export default function PlayerProfile() {
                                     : 'bg-dark-600 text-gray-400 hover:bg-dark-500'
                                 }`}
                               >
-                                {p.class && <span>{CLASS_ICONS[p.class]}</span>}
+                                {p.class && <ClassIcon className={p.class} size="w-3 h-3" />}
                                 {p.username}
                               </Link>
                             ))}
