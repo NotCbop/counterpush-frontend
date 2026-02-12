@@ -24,14 +24,17 @@ const CLASS_ICONS = {
 };
 
 // Class icon component
-const ClassIcon = ({ className, size = 'w-5 h-5' }) => (
-  <img 
-    src={CLASS_ICONS[className]} 
-    alt={className}
-    className={`${size} object-contain`}
-    onError={(e) => { e.target.style.display = 'none'; }}
-  />
-);
+const ClassIcon = ({ classType, size = 'w-5 h-5' }) => {
+  if (!classType || !CLASS_ICONS[classType]) return null;
+  return (
+    <img 
+      src={CLASS_ICONS[classType]} 
+      alt={classType}
+      className={`${size} object-contain`}
+      onError={(e) => { e.target.style.display = 'none'; }}
+    />
+  );
+};
 
 export default function PlayerProfile() {
   const router = useRouter();
@@ -208,7 +211,7 @@ export default function PlayerProfile() {
           <div className="bg-dark-800 border border-dark-600 rounded-2xl p-6 mb-8">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
               <h2 className="font-display text-xl flex items-center gap-2">
-                {selectedClass && <ClassIcon className={selectedClass} size="w-6 h-6" />}
+                {selectedClass && <ClassIcon classType={selectedClass} size="w-6 h-6" />}
                 {selectedClass ? `${selectedClass.toUpperCase()} STATS` : 'OVERALL STATS'}
               </h2>
               
@@ -234,7 +237,7 @@ export default function PlayerProfile() {
                         : 'bg-dark-700 text-gray-400 hover:bg-dark-600'
                     }`}
                   >
-                    <ClassIcon className={className} size="w-5 h-5" />
+                    <ClassIcon classType={className} size="w-5 h-5" />
                     <span className="hidden sm:inline">{className}</span>
                   </button>
                 ))}
@@ -310,7 +313,7 @@ export default function PlayerProfile() {
                           {/* Class played */}
                           {playerResult?.class && (
                             <div className={`flex items-center gap-1 text-sm ${getClassColor(playerResult.class)}`}>
-                              <ClassIcon className={playerResult.class} size="w-4 h-4" />
+                              <ClassIcon classType={playerResult.class} size="w-4 h-4" />
                               <span>{playerResult.class}</span>
                             </div>
                           )}
@@ -364,7 +367,7 @@ export default function PlayerProfile() {
                                     : 'bg-dark-600 text-gray-400 hover:bg-dark-500'
                                 }`}
                               >
-                                {p.class && <ClassIcon className={p.class} size="w-3 h-3" />}
+                                {p.class && <ClassIcon classType={p.class} size="w-3 h-3" />}
                                 {p.username}
                               </Link>
                             ))}
@@ -383,7 +386,7 @@ export default function PlayerProfile() {
                                     : 'bg-dark-600 text-gray-400 hover:bg-dark-500'
                                 }`}
                               >
-                                {p.class && <ClassIcon className={p.class} size="w-3 h-3" />}
+                                {p.class && <ClassIcon classType={p.class} size="w-3 h-3" />}
                                 {p.username}
                               </Link>
                             ))}

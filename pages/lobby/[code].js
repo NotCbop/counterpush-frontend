@@ -16,6 +16,7 @@ export default function LobbyPage() {
   const [loading, setLoading] = useState(true);
   const [vcStatus, setVcStatus] = useState({ playersInVC: [], allInVC: false });
   const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [selectedServer, setSelectedServer] = useState(0); // 0 = Server 1, 1 = Server 2
   
   // Purge state
   const [purgeActive, setPurgeActive] = useState(false);
@@ -231,8 +232,8 @@ export default function LobbyPage() {
   const draftPick = (odiscordId) => socket.emit('draftPick', { lobbyId: lobby.id, odiscordId });
   const addScore = (team) => socket.emit('addScore', { lobbyId: lobby.id, team });
   const declareWinner = (winnerTeam) => {
-    if (confirm(`Declare ${winnerTeam === 'team1' ? 'Team 1' : 'Team 2'} as winner?`)) {
-      socket.emit('declareWinner', { lobbyId: lobby.id, winnerTeam });
+    if (confirm(`Declare ${winnerTeam === 'team1' ? 'Team 1' : 'Team 2'} as winner? (Server ${selectedServer + 1})`)) {
+      socket.emit('declareWinner', { lobbyId: lobby.id, winnerTeam, serverIndex: selectedServer });
     }
   };
   const declareDraw = () => {
@@ -361,8 +362,13 @@ export default function LobbyPage() {
                       playerData.username[0].toUpperCase()
                     )}
                   </div>
-                  <div className={`absolute -bottom-1 -right-1 w-8 h-8 rounded-lg bg-gradient-to-br ${getRankBg(playerData.rank)} flex items-center justify-center font-display text-sm`}>
-                    {playerData.rank}
+                  <div className={`absolute -bottom-1 -right-1 w-8 h-8 rounded-lg bg-gradient-to-br ${getRankBg(playerData.rank)} flex items-center justify-center overflow-hidden`}>
+                    <img 
+                      src={`/ranks/${playerData.rank?.toLowerCase()}.png`}
+                      alt={playerData.rank}
+                      className="w-6 h-6 object-contain"
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
                   </div>
                 </div>
                 <div>
@@ -730,6 +736,33 @@ export default function LobbyPage() {
                     
                     {isHost ? (
                       <div className="space-y-4">
+                        {/* Server Selector */}
+                        <div className="mb-6">
+                          <p className="text-gray-400 mb-3">Select which server this match was played on:</p>
+                          <div className="flex justify-center gap-3">
+                            <button 
+                              onClick={() => setSelectedServer(0)}
+                              className={`px-6 py-3 rounded-xl font-semibold transition-all ${
+                                selectedServer === 0 
+                                  ? 'bg-[#9ced23] text-black' 
+                                  : 'bg-dark-700 text-gray-400 hover:bg-dark-600'
+                              }`}
+                            >
+                              🖥️ Server 1
+                            </button>
+                            <button 
+                              onClick={() => setSelectedServer(1)}
+                              className={`px-6 py-3 rounded-xl font-semibold transition-all ${
+                                selectedServer === 1 
+                                  ? 'bg-[#9ced23] text-black' 
+                                  : 'bg-dark-700 text-gray-400 hover:bg-dark-600'
+                              }`}
+                            >
+                              🖥️ Server 2
+                            </button>
+                          </div>
+                        </div>
+
                         <p className="text-gray-400 mb-4">Select the winning team:</p>
                         <div className="flex justify-center gap-4 flex-wrap">
                           <button onClick={() => declareWinner('team1')} className="px-8 py-4 bg-blue-600 hover:bg-blue-500 rounded-xl text-lg font-semibold transition-all hover:scale-105">
