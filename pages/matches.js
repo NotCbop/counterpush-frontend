@@ -81,11 +81,11 @@ export default function MatchesPage() {
 
                     <div className="grid md:grid-cols-2 gap-4">
                       <div className="bg-dark-700 rounded-lg p-3">
-                        <div className="text-xs text-green-400 mb-1">🏆 Winners</div>
+                        <div className="text-xs text-green-400 mb-1">Winners</div>
                         <div className="text-sm truncate">{winnerNames}</div>
                       </div>
                       <div className="bg-dark-700 rounded-lg p-3">
-                        <div className="text-xs text-red-400 mb-1">💀 Losers</div>
+                        <div className="text-xs text-red-400 mb-1">Losers</div>
                         <div className="text-sm truncate">{loserNames}</div>
                       </div>
                     </div>

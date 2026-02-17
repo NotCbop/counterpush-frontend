@@ -109,7 +109,7 @@ export default function MatchDetailPage() {
                 <div className="flex items-center justify-center gap-8">
                   <div className="text-center">
                     <div className="font-display text-2xl text-blue-400">TEAM 1</div>
-                    <div className="text-4xl font-bold text-blue-400">{match.winners?.[0]?.odiscordId === match.winners?.[0]?.odiscordId ? '🏆' : ''}</div>
+                    <div className="text-4xl font-bold text-blue-400">{match.winners?.[0]?.odiscordId === match.winners?.[0]?.odiscordId ? '' : ''}</div>
                   </div>
                   <div className="text-4xl font-display text-gray-500">VS</div>
                   <div className="text-center">
@@ -199,7 +199,7 @@ export default function MatchDetailPage() {
             {/* Losers / Team 2 */}
             <div className="bg-dark-800 border border-red-500/30 rounded-2xl p-6">
               <h3 className="font-display text-xl text-red-400 mb-4 flex items-center gap-2">
-                {match.isDraw ? 'TEAM 2' : '💀 LOSERS'}
+                {match.isDraw ? 'TEAM 2' : 'LOSERS'}
                 {!match.isDraw && <span className="text-sm font-normal text-red-300">-{match.eloLoss} ELO</span>}
               </h3>
               
