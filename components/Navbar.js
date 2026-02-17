@@ -61,10 +61,10 @@ export default function Navbar() {
               Browse
             </Link>
             <Link href="/leaderboard" className="text-gray-300 hover:text-white transition-colors">
-              Leaderboard
+              ELO Leaderboard
             </Link>
             <Link href="/stats-leaderboard" className="text-gray-300 hover:text-white transition-colors">
-              Stats
+              Stats Leaderboard
             </Link>
             <Link href="/matches" className="text-gray-300 hover:text-white transition-colors">
               Matches
@@ -131,10 +131,10 @@ export default function Navbar() {
                 Browse
               </Link>
               <Link href="/leaderboard" className="text-gray-300 hover:text-white transition-colors">
-                Leaderboard
+                ELO Leaderboard
               </Link>
               <Link href="/stats-leaderboard" className="text-gray-300 hover:text-white transition-colors">
-                Stats
+                Stats Leaderboard
               </Link>
               <Link href="/matches" className="text-gray-300 hover:text-white transition-colors">
                 Matches

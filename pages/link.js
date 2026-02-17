@@ -171,7 +171,7 @@ export default function LinkPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <img 
-                    src={`https://crafthead.net/avatar/${linkedAccount.uuid}/64`}
+                    src={`https://mc-heads.net/avatar/${linkedAccount.uuid}/64`}
                     alt={linkedAccount.username}
                     className="w-16 h-16 rounded-lg"
                   />
@@ -304,3 +304,4 @@ export default function LinkPage() {
     </div>
   );
 }
+
