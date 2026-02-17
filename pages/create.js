@@ -1,6 +1,7 @@
 import { useSession, signIn } from 'next-auth/react';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 import Navbar from '../components/Navbar';
 import io from 'socket.io-client';
 
@@ -12,20 +13,26 @@ export default function CreateLobby() {
   const [creating, setCreating] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [joinCode, setJoinCode] = useState('');
+  const [minecraftLinked, setMinecraftLinked] = useState(null);
 
   useEffect(() => {
     const checkExistingLobby = async () => {
       if (session?.user?.discordId) {
         try {
+          // Check for existing lobby
           const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/session/${session.user.discordId}`);
           const data = await res.json();
           if (data.lobbyId && data.lobby) {
-            // Auto redirect to existing lobby
             router.push(`/lobby/${data.lobbyId}`);
             return;
           }
+
+          // Check for Minecraft link
+          const mcRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/link/minecraft/${session.user.discordId}`);
+          setMinecraftLinked(mcRes.ok);
         } catch (e) {
           console.error('Failed to check session:', e);
+          setMinecraftLinked(false);
         }
       }
       setCheckingSession(false);
@@ -38,6 +45,10 @@ export default function CreateLobby() {
 
   const handleCreate = () => {
     if (!session) return;
+    if (!minecraftLinked) {
+      router.push('/link');
+      return;
+    }
 
     setCreating(true);
 
@@ -92,6 +103,18 @@ export default function CreateLobby() {
       <div className="pt-24 pb-12 px-4">
         <div className="max-w-4xl mx-auto">
           <h1 className="font-display text-4xl text-center mb-8">PLAY</h1>
+
+          {/* Minecraft Link Warning */}
+          {session && minecraftLinked === false && (
+            <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-2xl p-6 mb-6 text-center">
+              <div className="text-4xl mb-2">⚠️</div>
+              <h2 className="font-display text-xl text-yellow-400 mb-2">Minecraft Account Required</h2>
+              <p className="text-gray-300 mb-4">You must link your Minecraft account before playing.</p>
+              <Link href="/link" className="btn-primary">
+                Link Minecraft Account
+              </Link>
+            </div>
+          )}
 
           <div className="grid md:grid-cols-2 gap-6">
               {/* Create Lobby */}

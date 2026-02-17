@@ -1,24 +1,56 @@
 import Link from 'next/link';
 import { useSession, signIn, signOut } from 'next-auth/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 
 export default function Navbar() {
   const { data: session } = useSession();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeLobby, setActiveLobby] = useState(null);
+  const router = useRouter();
+
+  // Check for active lobby
+  useEffect(() => {
+    const checkLobby = async () => {
+      if (session?.user?.discordId) {
+        try {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/session/${session.user.discordId}`);
+          const data = await res.json();
+          if (data.lobbyId && data.lobby) {
+            setActiveLobby(data.lobbyId);
+          } else {
+            setActiveLobby(null);
+          }
+        } catch (e) {
+          setActiveLobby(null);
+        }
+      }
+    };
+    checkLobby();
+  }, [session]);
+
+  const handleLogoClick = (e) => {
+    e.preventDefault();
+    if (activeLobby) {
+      router.push(`/lobby/${activeLobby}`);
+    } else {
+      router.push('/');
+    }
+  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 glass">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-center h-16 relative">
           {/* Logo - positioned absolute left */}
-          <Link href="/" className="absolute left-4 flex items-center gap-3 group">
+          <a href="#" onClick={handleLogoClick} className="absolute left-4 flex items-center gap-3 group cursor-pointer">
             <img 
               src="/logo.png" 
               alt="Counterpush" 
               className="w-10 h-10 rounded-lg group-hover:scale-110 transition-transform"
             />
             <span className="font-display text-xl hidden sm:block gradient-text-animated">COUNTERPUSH</span>
-          </Link>
+          </a>
 
           {/* Desktop Navigation - centered */}
           <div className="hidden md:flex items-center gap-8">
@@ -31,8 +63,11 @@ export default function Navbar() {
             <Link href="/leaderboard" className="text-gray-300 hover:text-white transition-colors">
               Leaderboard
             </Link>
-            <Link href="/stats" className="text-gray-300 hover:text-white transition-colors">
+            <Link href="/stats-leaderboard" className="text-gray-300 hover:text-white transition-colors">
               Stats
+            </Link>
+            <Link href="/matches" className="text-gray-300 hover:text-white transition-colors">
+              Matches
             </Link>
             <Link href="/link" className="text-gray-300 hover:text-white transition-colors">
               Link MC
@@ -98,8 +133,11 @@ export default function Navbar() {
               <Link href="/leaderboard" className="text-gray-300 hover:text-white transition-colors">
                 Leaderboard
               </Link>
-              <Link href="/stats" className="text-gray-300 hover:text-white transition-colors">
+              <Link href="/stats-leaderboard" className="text-gray-300 hover:text-white transition-colors">
                 Stats
+              </Link>
+              <Link href="/matches" className="text-gray-300 hover:text-white transition-colors">
+                Matches
               </Link>
               <Link href="/link" className="text-gray-300 hover:text-white transition-colors">
                 Link MC
