@@ -33,9 +33,9 @@ export default function StatsLeaderboardPage() {
     { key: 'kills', label: 'Kills', color: 'text-green-400' },
     { key: 'deaths', label: 'Deaths', color: 'text-red-400' },
     { key: 'assists', label: 'Assists', color: 'text-blue-400' },
+    { key: 'kdr', label: 'KDR', color: 'text-yellow-400' },
     { key: 'damage', label: 'Damage', color: 'text-orange-400' },
     { key: 'healing', label: 'Healing', color: 'text-pink-400' },
-    { key: 'kdr', label: 'KDR', color: 'text-yellow-400' },
     { key: 'gamesPlayed', label: 'Games', color: 'text-purple-400' },
   ];
 

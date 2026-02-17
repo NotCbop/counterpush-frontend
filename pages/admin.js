@@ -13,6 +13,7 @@ export default function AdminPage() {
   // Player editing
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  const [showDropdown, setShowDropdown] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [editData, setEditData] = useState({});
   const [saving, setSaving] = useState(false);
@@ -33,13 +34,31 @@ export default function AdminPage() {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/players/search/${searchQuery}`);
       const data = await res.json();
       setSearchResults(data);
+      setShowDropdown(true);
     } catch (e) {
       console.error('Search error:', e);
     }
   };
 
+  // Debounced search on input change
+  useEffect(() => {
+    if (!searchQuery.trim() || searchQuery.length < 2) {
+      setSearchResults([]);
+      setShowDropdown(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      searchPlayers();
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   const selectPlayer = (player) => {
     setSelectedPlayer(player);
+    setSearchQuery(player.username);
+    setShowDropdown(false);
     setEditData({
       elo: player.elo || 500,
       wins: player.wins || 0,
@@ -187,45 +206,45 @@ export default function AdminPage() {
           <div className="bg-dark-800 border border-dark-600 rounded-2xl p-6">
             <h2 className="font-display text-xl mb-4">👤 Edit Player</h2>
 
-            {/* Search */}
-            <div className="flex gap-2 mb-4">
+            {/* Search with Autocomplete */}
+            <div className="relative mb-4">
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && searchPlayers()}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  if (selectedPlayer) setSelectedPlayer(null);
+                }}
+                onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
                 placeholder="Search player by username..."
-                className="flex-1 px-4 py-2 bg-dark-700 border border-dark-600 rounded-xl focus:outline-none focus:border-[#9ced23]"
+                className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-xl focus:outline-none focus:border-[#9ced23]"
               />
-              <button onClick={searchPlayers} className="btn-primary px-6">
-                Search
-              </button>
+              
+              {/* Autocomplete Dropdown */}
+              {showDropdown && searchResults.length > 0 && !selectedPlayer && (
+                <div className="absolute z-50 w-full mt-2 bg-dark-800 border border-dark-600 rounded-xl shadow-xl overflow-hidden max-h-64 overflow-y-auto">
+                  {searchResults.map((player) => (
+                    <button
+                      key={player.odiscordId}
+                      onClick={() => selectPlayer(player)}
+                      className="w-full flex items-center gap-3 p-3 hover:bg-dark-700 transition-colors text-left border-b border-dark-700 last:border-0"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-dark-600 flex items-center justify-center overflow-hidden">
+                        {player.avatar ? (
+                          <img src={player.avatar} alt="" className="w-full h-full" />
+                        ) : (
+                          <span>{player.username?.[0]?.toUpperCase() || '?'}</span>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium">{player.username}</div>
+                        <div className="text-xs text-gray-500">{player.elo} ELO • {player.gamesPlayed || 0} games • {player.wins || 0}W/{player.losses || 0}L</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-
-            {/* Search Results */}
-            {searchResults.length > 0 && !selectedPlayer && (
-              <div className="mb-4 space-y-2">
-                {searchResults.map((player) => (
-                  <button
-                    key={player.odiscordId}
-                    onClick={() => selectPlayer(player)}
-                    className="w-full flex items-center gap-3 p-3 bg-dark-700 rounded-lg hover:bg-dark-600 transition-colors text-left"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-dark-600 flex items-center justify-center overflow-hidden">
-                      {player.avatar ? (
-                        <img src={player.avatar} alt="" className="w-full h-full" />
-                      ) : (
-                        <span>{player.username?.[0]?.toUpperCase() || '?'}</span>
-                      )}
-                    </div>
-                    <div>
-                      <div className="font-medium">{player.username}</div>
-                      <div className="text-xs text-gray-500">{player.elo} ELO • {player.gamesPlayed} games</div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
 
             {/* Edit Form */}
             {selectedPlayer && (
