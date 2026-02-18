@@ -72,9 +72,11 @@ export default function Navbar() {
             <Link href="/link" className="text-gray-300 hover:text-white transition-colors">
               Link
             </Link>
-            <Link href="/profile" className="text-gray-300 hover:text-white transition-colors">
-              Profile
-            </Link>
+            {session && (
+              <Link href={`/player/${session.user.discordId}`} className="text-gray-300 hover:text-white transition-colors">
+                Profile
+              </Link>
+            )}
           </div>
 
           {/* Auth Section - positioned absolute right */}
@@ -145,9 +147,11 @@ export default function Navbar() {
               <Link href="/link" className="text-gray-300 hover:text-white transition-colors">
                 Link
               </Link>
-              <Link href="/profile" className="text-gray-300 hover:text-white transition-colors">
-                Profile
-              </Link>
+              {session && (
+                <Link href={`/player/${session.user.discordId}`} className="text-gray-300 hover:text-white transition-colors">
+                  Profile
+                </Link>
+              )}
             </div>
           </div>
         )}
