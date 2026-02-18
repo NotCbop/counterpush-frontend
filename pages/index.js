@@ -136,7 +136,7 @@ export default function Home() {
         <div className="relative max-w-7xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-dark-700/50 border border-dark-500 rounded-full text-sm mb-8 animate-slide-up">
             <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-            <span className="text-gray-300">Open Beta Active</span>
+            <span className="text-gray-300">Season 1 Active</span>
           </div>
 
           <h1 className="font-display text-6xl md:text-8xl mb-6 animate-slide-up" style={{ animationDelay: '0.1s' }}>
@@ -214,27 +214,78 @@ export default function Home() {
           <h2 className="font-display text-3xl text-center mb-8">PUBLIC LOBBIES</h2>
           
           {publicLobbies.length > 0 ? (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {publicLobbies.map(lobby => (
-                <div key={lobby.id} className="glass-card rounded-xl p-6 card-hover">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="font-mono text-xl tracking-widest gradient-text">{lobby.id}</span>
-                    <span className="text-gray-400 text-sm">{lobby.playerCount}/{lobby.maxPlayers} players</span>
+            <>
+              {/* Open Lobbies */}
+              {publicLobbies.filter(l => l.phase === 'waiting').length > 0 && (
+                <div className="mb-8">
+                  <h3 className="font-display text-xl mb-4 flex items-center gap-2">
+                    <span className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
+                    Open Lobbies
+                  </h3>
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {publicLobbies.filter(l => l.phase === 'waiting').map(lobby => (
+                      <div key={lobby.id} className="glass-card rounded-xl p-6 card-hover">
+                        <div className="flex items-center justify-between mb-4">
+                          <span className="font-mono text-xl tracking-widest gradient-text">{lobby.id}</span>
+                          <span className="text-gray-400 text-sm">{lobby.playerCount}/{lobby.maxPlayers} players</span>
+                        </div>
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-8 h-8 rounded-full bg-dark-600 flex items-center justify-center">
+                            {lobby.host.avatar ? (
+                              <img src={lobby.host.avatar} alt="" className="w-full h-full rounded-full" />
+                            ) : lobby.host.username?.[0] || '?'}
+                          </div>
+                          <span className="text-gray-300">{lobby.host.username}</span>
+                        </div>
+                        <Link href={`/lobby/${lobby.id}`} className="btn-primary w-full text-center block">
+                          Join Lobby
+                        </Link>
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-8 h-8 rounded-full bg-dark-600 flex items-center justify-center">
-                      {lobby.host.avatar ? (
-                        <img src={lobby.host.avatar} alt="" className="w-full h-full rounded-full" />
-                      ) : lobby.host.username[0]}
-                    </div>
-                    <span className="text-gray-300">{lobby.host.username}</span>
-                  </div>
-                  <Link href={`/lobby/${lobby.id}`} className="btn-primary w-full text-center block">
-                    Join Lobby
-                  </Link>
                 </div>
-              ))}
-            </div>
+              )}
+
+              {/* Ongoing Matches */}
+              {publicLobbies.filter(l => l.phase !== 'waiting').length > 0 && (
+                <div>
+                  <h3 className="font-display text-xl mb-4 flex items-center gap-2">
+                    <span className="w-3 h-3 bg-orange-500 rounded-full animate-pulse"></span>
+                    Ongoing Matches
+                  </h3>
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {publicLobbies.filter(l => l.phase !== 'waiting').map(lobby => (
+                      <div key={lobby.id} className="glass-card rounded-xl p-6 border border-orange-500/30 opacity-80">
+                        <div className="flex items-center justify-between mb-4">
+                          <span className="font-mono text-xl tracking-widest text-orange-400">{lobby.id}</span>
+                          <span className="px-2 py-1 rounded-lg text-xs bg-orange-500/20 text-orange-400">
+                            🎮 In Game
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-8 h-8 rounded-full bg-dark-600 flex items-center justify-center">
+                            {lobby.host.avatar ? (
+                              <img src={lobby.host.avatar} alt="" className="w-full h-full rounded-full" />
+                            ) : lobby.host.username?.[0] || '?'}
+                          </div>
+                          <span className="text-gray-300">{lobby.host.username}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-500 text-sm">{lobby.playerCount} players</span>
+                          {lobby.score && (
+                            <div className="flex items-center gap-2 font-mono">
+                              <span className="text-blue-400">{lobby.score.team1}</span>
+                              <span className="text-gray-500">-</span>
+                              <span className="text-red-400">{lobby.score.team2}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           ) : (
             <div className="glass-card rounded-xl text-center text-gray-500 py-12">
               <div className="text-4xl mb-4">🎮</div>

@@ -299,9 +299,13 @@ export default function PlayerProfile() {
                   const matchDate = new Date(match.timestamp);
                   
                   return (
-                    <div key={match.id || i} className={`bg-dark-700 border rounded-xl p-4 ${
-                      isDraw ? 'border-gray-500/30' : isWinner ? 'border-green-500/30' : 'border-red-500/30'
-                    }`}>
+                    <Link 
+                      key={match.id || i} 
+                      href={`/match/${match.id}`}
+                      className={`block bg-dark-700 border rounded-xl p-4 hover:bg-dark-600 transition-colors ${
+                        isDraw ? 'border-gray-500/30' : isWinner ? 'border-green-500/30' : 'border-red-500/30'
+                      }`}
+                    >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                           <div className={`px-3 py-1 rounded-lg text-sm font-semibold ${
@@ -324,20 +328,23 @@ export default function PlayerProfile() {
                             <div className="text-xs text-gray-500">Lobby: {match.lobbyId}</div>
                           </div>
                         </div>
-                        <div className="text-right">
-                          {playerResult && !isDraw && (
-                            <div className={`font-mono text-lg ${playerResult.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                              {playerResult.change >= 0 ? '+' : ''}{playerResult.change} ELO
-                            </div>
-                          )}
-                          {isDraw && (
-                            <div className="font-mono text-lg text-gray-400">±0 ELO</div>
-                          )}
-                          {playerResult && (
-                            <div className="text-xs text-gray-500">
-                              {playerResult.oldElo} → {playerResult.newElo}
-                            </div>
-                          )}
+                        <div className="text-right flex items-center gap-4">
+                          <div>
+                            {playerResult && !isDraw && (
+                              <div className={`font-mono text-lg ${playerResult.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                {playerResult.change >= 0 ? '+' : ''}{playerResult.change} ELO
+                              </div>
+                            )}
+                            {isDraw && (
+                              <div className="font-mono text-lg text-gray-400">±0 ELO</div>
+                            )}
+                            {playerResult && (
+                              <div className="text-xs text-gray-500">
+                                {playerResult.oldElo} → {playerResult.newElo}
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-gray-500">→</div>
                         </div>
                       </div>
                       
@@ -353,23 +360,22 @@ export default function PlayerProfile() {
                       )}
                       
                       {/* Show other players in match */}
-                      <div className={`mt-3 pt-3 border-t border-dark-600 grid md:grid-cols-2 gap-4`}>
+                      <div className="mt-3 pt-3 border-t border-dark-600 grid md:grid-cols-2 gap-4" onClick={(e) => e.stopPropagation()}>
                         <div>
                           <div className="text-xs text-green-400 mb-1">Winners</div>
                           <div className="flex flex-wrap gap-1">
                             {match.winners?.map(p => (
-                              <Link 
+                              <span 
                                 key={p.odiscordId} 
-                                href={`/player/${p.odiscordId}`}
                                 className={`text-xs px-2 py-1 rounded flex items-center gap-1 ${
                                   p.odiscordId === player.odiscordId 
                                     ? 'bg-green-500/30 text-green-300' 
-                                    : 'bg-dark-600 text-gray-400 hover:bg-dark-500'
+                                    : 'bg-dark-600 text-gray-400'
                                 }`}
                               >
                                 {p.class && <ClassIcon classType={p.class} size="w-3 h-3" />}
                                 {p.username}
-                              </Link>
+                              </span>
                             ))}
                           </div>
                         </div>
@@ -377,23 +383,22 @@ export default function PlayerProfile() {
                           <div className="text-xs text-red-400 mb-1">Losers</div>
                           <div className="flex flex-wrap gap-1">
                             {match.losers?.map(p => (
-                              <Link 
+                              <span 
                                 key={p.odiscordId} 
-                                href={`/player/${p.odiscordId}`}
                                 className={`text-xs px-2 py-1 rounded flex items-center gap-1 ${
                                   p.odiscordId === player.odiscordId 
                                     ? 'bg-red-500/30 text-red-300' 
-                                    : 'bg-dark-600 text-gray-400 hover:bg-dark-500'
+                                    : 'bg-dark-600 text-gray-400'
                                 }`}
                               >
                                 {p.class && <ClassIcon classType={p.class} size="w-3 h-3" />}
                                 {p.username}
-                              </Link>
+                              </span>
                             ))}
                           </div>
                         </div>
                       </div>
-                    </div>
+                    </Link>
                   );
                 })}
               </div>

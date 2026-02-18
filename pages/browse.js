@@ -40,6 +40,10 @@ export default function Browse() {
     }
   };
 
+  // Separate lobbies by phase
+  const waitingLobbies = lobbies.filter(l => l.phase === 'waiting');
+  const ongoingLobbies = lobbies.filter(l => l.phase !== 'waiting');
+
   return (
     <div className="min-h-screen bg-dark-900 bg-noise">
       <Navbar />
@@ -60,62 +64,129 @@ export default function Browse() {
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin w-12 h-12 border-4 border-t-transparent rounded-full" style={{ borderColor: '#9ced23', borderTopColor: 'transparent' }} />
             </div>
-          ) : lobbies.length > 0 ? (
-            <div className="grid md:grid-cols-2 gap-4">
-              {lobbies.map(lobby => (
-                <div key={lobby.id} className="bg-dark-800 border border-dark-600 rounded-xl p-6 card-hover">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="font-mono text-2xl tracking-widest gradient-text">{lobby.id}</span>
-                    <span className={`px-3 py-1 rounded-lg text-sm ${
-                      lobby.playerCount >= lobby.maxPlayers 
-                        ? 'bg-yellow-500/20 text-yellow-400' 
-                        : 'bg-green-500/20 text-green-400'
-                    }`}>
-                      {lobby.playerCount}/{lobby.maxPlayers}
-                      {lobby.playerCount >= lobby.maxPlayers && ' ⚡'}
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-full bg-dark-600 flex items-center justify-center">
-                      {lobby.host.avatar ? (
-                        <img src={lobby.host.avatar} alt="" className="w-full h-full rounded-full" />
-                      ) : (
-                        <span>{lobby.host.username[0]}</span>
-                      )}
-                    </div>
-                    <div>
-                      <div className="text-gray-300">{lobby.host.username}</div>
-                      <div className="text-xs text-gray-500">Host</div>
-                    </div>
-                  </div>
-
-                  <div className="text-xs text-gray-500 mb-4">
-                    Created {new Date(lobby.createdAt).toLocaleTimeString()}
-                  </div>
-
-                  {session ? (
-                    <Link 
-                      href={`/lobby/${lobby.id}`} 
-                      className="btn-primary w-full text-center block"
-                    >
-                      {lobby.playerCount >= lobby.maxPlayers ? 'Join (Purge Mode ⚡)' : 'Join Lobby'}
-                    </Link>
-                  ) : (
-                    <button onClick={() => signIn('discord')} className="btn-primary w-full">
-                      Login to Join
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
           ) : (
-            <div className="text-center py-12">
-              <div className="text-6xl mb-4">🎮</div>
-              <h2 className="font-display text-2xl mb-2">No Public Lobbies</h2>
-              <p className="text-gray-400 mb-6">Be the first to create one!</p>
-              <Link href="/create" className="btn-primary">Create Lobby</Link>
-            </div>
+            <>
+              {/* Waiting Lobbies */}
+              {waitingLobbies.length > 0 && (
+                <div className="mb-8">
+                  <h2 className="font-display text-xl mb-4 flex items-center gap-2">
+                    <span className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
+                    Open Lobbies
+                  </h2>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {waitingLobbies.map(lobby => (
+                      <div key={lobby.id} className="bg-dark-800 border border-dark-600 rounded-xl p-6 card-hover">
+                        <div className="flex items-center justify-between mb-4">
+                          <span className="font-mono text-2xl tracking-widest gradient-text">{lobby.id}</span>
+                          <span className={`px-3 py-1 rounded-lg text-sm ${
+                            lobby.playerCount >= lobby.maxPlayers 
+                              ? 'bg-yellow-500/20 text-yellow-400' 
+                              : 'bg-green-500/20 text-green-400'
+                          }`}>
+                            {lobby.playerCount}/{lobby.maxPlayers}
+                            {lobby.playerCount >= lobby.maxPlayers && ' ⚡'}
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-10 h-10 rounded-full bg-dark-600 flex items-center justify-center">
+                            {lobby.host.avatar ? (
+                              <img src={lobby.host.avatar} alt="" className="w-full h-full rounded-full" />
+                            ) : (
+                              <span>{lobby.host.username?.[0] || '?'}</span>
+                            )}
+                          </div>
+                          <div>
+                            <div className="text-gray-300">{lobby.host.username}</div>
+                            <div className="text-xs text-gray-500">Host</div>
+                          </div>
+                        </div>
+
+                        <div className="text-xs text-gray-500 mb-4">
+                          Created {new Date(lobby.createdAt).toLocaleTimeString()}
+                        </div>
+
+                        {session ? (
+                          <Link 
+                            href={`/lobby/${lobby.id}`} 
+                            className="btn-primary w-full text-center block"
+                          >
+                            {lobby.playerCount >= lobby.maxPlayers ? 'Join (Purge Mode ⚡)' : 'Join Lobby'}
+                          </Link>
+                        ) : (
+                          <button onClick={() => signIn('discord')} className="btn-primary w-full">
+                            Login to Join
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Ongoing Lobbies */}
+              {ongoingLobbies.length > 0 && (
+                <div className="mb-8">
+                  <h2 className="font-display text-xl mb-4 flex items-center gap-2">
+                    <span className="w-3 h-3 bg-orange-500 rounded-full animate-pulse"></span>
+                    Ongoing Matches
+                  </h2>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {ongoingLobbies.map(lobby => (
+                      <div key={lobby.id} className="bg-dark-800 border border-orange-500/30 rounded-xl p-6 opacity-80">
+                        <div className="flex items-center justify-between mb-4">
+                          <span className="font-mono text-2xl tracking-widest text-orange-400">{lobby.id}</span>
+                          <span className="px-3 py-1 rounded-lg text-sm bg-orange-500/20 text-orange-400">
+                            🎮 In Game
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-10 h-10 rounded-full bg-dark-600 flex items-center justify-center">
+                            {lobby.host.avatar ? (
+                              <img src={lobby.host.avatar} alt="" className="w-full h-full rounded-full" />
+                            ) : (
+                              <span>{lobby.host.username?.[0] || '?'}</span>
+                            )}
+                          </div>
+                          <div>
+                            <div className="text-gray-300">{lobby.host.username}</div>
+                            <div className="text-xs text-gray-500">Host</div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="text-sm text-gray-400">
+                            {lobby.playerCount} players
+                          </div>
+                          {lobby.score && (
+                            <div className="flex items-center gap-2 text-lg font-mono">
+                              <span className="text-blue-400">{lobby.score.team1}</span>
+                              <span className="text-gray-500">-</span>
+                              <span className="text-red-400">{lobby.score.team2}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="bg-dark-700 rounded-lg p-3 text-center text-gray-500 text-sm">
+                          Match in progress...
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* No lobbies at all */}
+              {lobbies.length === 0 && (
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">🎮</div>
+                  <h2 className="font-display text-2xl mb-2">No Public Lobbies</h2>
+                  <p className="text-gray-400 mb-6">Be the first to create one!</p>
+                  <Link href="/create" className="btn-primary">Create Lobby</Link>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

@@ -43,11 +43,11 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-center h-16 relative">
           {/* Logo - positioned absolute left */}
-          <a href="#" onClick={handleLogoClick} className="absolute left-4 flex items-center gap-3 group cursor-pointer">
+          <a href="#" onClick={handleLogoClick} className="absolute left-4 flex items-center gap-2 group cursor-pointer">
             <img 
               src="/logo.png" 
               alt="Counterpush" 
-              className="w-10 h-10 rounded-lg group-hover:scale-110 transition-transform"
+              className="w-8 h-8 rounded-lg group-hover:scale-110 transition-transform"
             />
             <span className="font-display text-xl hidden sm:block gradient-text-animated">COUNTERPUSH</span>
           </a>
@@ -70,7 +70,10 @@ export default function Navbar() {
               Matches
             </Link>
             <Link href="/link" className="text-gray-300 hover:text-white transition-colors">
-              Link MC
+              Link
+            </Link>
+            <Link href="/profile" className="text-gray-300 hover:text-white transition-colors">
+              Profile
             </Link>
           </div>
 
@@ -140,7 +143,10 @@ export default function Navbar() {
                 Matches
               </Link>
               <Link href="/link" className="text-gray-300 hover:text-white transition-colors">
-                Link MC
+                Link
+              </Link>
+              <Link href="/profile" className="text-gray-300 hover:text-white transition-colors">
+                Profile
               </Link>
             </div>
           </div>
