@@ -203,9 +203,9 @@ export default function Browse() {
               {lobbies.length === 0 && (
                 <div className="text-center py-12">
                   <div className="text-6xl mb-4">🎮</div>
-                  <h2 className="font-display text-2xl mb-2">No Public Lobbies</h2>
-                  <p className="text-gray-400 mb-6">Be the first to create one!</p>
-                  <Link href="/create" className="btn-primary">Create Lobby</Link>
+                  <h2 className="font-display text-2xl mb-2">No Ranked Lobbies</h2>
+                  <p className="text-gray-400 mb-6">Join our Discord to find active Ranked sessions!</p>
+                  <Link href="/create" className="btn-primary">Create Private Lobby</Link>
                 </div>
               )}
             </>
