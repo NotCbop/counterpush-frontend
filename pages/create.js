@@ -123,9 +123,9 @@ export default function CreateLobby() {
                 {/* Host role note */}
                 <div className={`text-xs mb-6 p-3 rounded-lg ${isPublic ? 'bg-yellow-500/10 text-yellow-400/80' : 'bg-dark-700 text-gray-500'}`}>
                   {isPublic ? (
-                    <>⚠️ Requires <span className="font-semibold">Host Role</span> for ranked. Without it, a casual lobby will be created instead.</>
+                    <>⚠️ Requires <span className="font-semibold">Host Role</span> for ranked. Without it, a private lobby will be created instead.</>
                   ) : (
-                    <>🎮 Casual lobby - no ELO changes, private code only</>
+                    <>🎮 Private lobby (No ELO)</>
                   )}
                 </div>
 
