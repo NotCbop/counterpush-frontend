@@ -134,15 +134,6 @@ export default function Lobby() {
     }
   };
 
-  const setTeamColor = (team, colorId) => {
-    if (socket && isHost) {
-      socket.emit('setTeamColors', {
-        lobbyId: lobby.id,
-        [team === 1 ? 'team1Color' : 'team2Color']: colorId
-      });
-    }
-  };
-
   const startGame = () => {
     if (socket && isHost) {
       socket.emit('startCaptainSelect', { lobbyId: lobby.id });
@@ -237,41 +228,6 @@ export default function Lobby() {
               </div>
             </div>
           </div>
-
-          {/* Team Color Selector (Host only, waiting phase) */}
-          {isHost && lobby.phase === 'waiting' && (
-            <div className="bg-dark-800 border border-dark-600 rounded-2xl p-6 mb-6">
-              <h2 className="font-display text-xl mb-4">TEAM COLORS</h2>
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <div className="text-sm text-gray-400 mb-2">Team 1</div>
-                  <div className="flex flex-wrap gap-2">
-                    {Object.entries(TEAM_COLORS).map(([id, color]) => (
-                      <button
-                        key={id}
-                        onClick={() => setTeamColor(1, parseInt(id))}
-                        className={`w-8 h-8 rounded-lg ${color.bg} ${lobby.team1Color == id ? 'ring-2 ring-white ring-offset-2 ring-offset-dark-800' : ''}`}
-                        title={color.name}
-                      />
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-sm text-gray-400 mb-2">Team 2</div>
-                  <div className="flex flex-wrap gap-2">
-                    {Object.entries(TEAM_COLORS).map(([id, color]) => (
-                      <button
-                        key={id}
-                        onClick={() => setTeamColor(2, parseInt(id))}
-                        className={`w-8 h-8 rounded-lg ${color.bg} ${lobby.team2Color == id ? 'ring-2 ring-white ring-offset-2 ring-offset-dark-800' : ''}`}
-                        title={color.name}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Players List */}
           {lobby.phase === 'waiting' && (

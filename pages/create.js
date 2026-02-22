@@ -1,7 +1,6 @@
 import { useSession, signIn } from 'next-auth/react';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import Link from 'next/link';
 import Navbar from '../components/Navbar';
 import io from 'socket.io-client';
 
@@ -13,26 +12,20 @@ export default function CreateLobby() {
   const [creating, setCreating] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [joinCode, setJoinCode] = useState('');
-  const [minecraftLinked, setMinecraftLinked] = useState(null);
 
   useEffect(() => {
     const checkExistingLobby = async () => {
       if (session?.user?.discordId) {
         try {
-          // Check for existing lobby
           const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/session/${session.user.discordId}`);
           const data = await res.json();
           if (data.lobbyId && data.lobby) {
+            // Auto redirect to existing lobby
             router.push(`/lobby/${data.lobbyId}`);
             return;
           }
-
-          // Check for Minecraft link
-          const mcRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/link/minecraft/${session.user.discordId}`);
-          setMinecraftLinked(mcRes.ok);
         } catch (e) {
           console.error('Failed to check session:', e);
-          setMinecraftLinked(false);
         }
       }
       setCheckingSession(false);
@@ -45,10 +38,6 @@ export default function CreateLobby() {
 
   const handleCreate = () => {
     if (!session) return;
-    if (!minecraftLinked) {
-      router.push('/link');
-      return;
-    }
 
     setCreating(true);
 
@@ -104,28 +93,19 @@ export default function CreateLobby() {
         <div className="max-w-4xl mx-auto">
           <h1 className="font-display text-4xl text-center mb-8">PLAY</h1>
 
-          {/* Minecraft Link Warning */}
-          {session && minecraftLinked === false && (
-            <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-2xl p-6 mb-6 text-center">
-              <div className="text-4xl mb-2">⚠️</div>
-              <h2 className="font-display text-xl text-yellow-400 mb-2">Minecraft Account Required</h2>
-              <p className="text-gray-300 mb-4">You must link your Minecraft account before playing.</p>
-              <Link href="/link" className="btn-primary">
-                Link Minecraft Account
-              </Link>
-            </div>
-          )}
-
           <div className="grid md:grid-cols-2 gap-6">
               {/* Create Lobby */}
               <div className="bg-dark-800 border border-dark-600 rounded-2xl p-8">
                 <h2 className="font-display text-2xl mb-6 text-center">CREATE LOBBY</h2>
                 
-                {/* Public/Private Toggle */}
-                <div className="flex items-center justify-between mb-6 pb-6 border-b border-dark-600">
+                {/* Ranked/Casual Toggle */}
+                <div className="flex items-center justify-between mb-4 pb-4 border-b border-dark-600">
                   <div>
-                    <div className="font-semibold">Public Lobby</div>
-                    <div className="text-sm text-gray-400">Show in lobby browser</div>
+                    <div className="font-semibold flex items-center gap-2">
+                      Ranked Lobby
+                      {isPublic && <span className="text-yellow-400">⭐</span>}
+                    </div>
+                    <div className="text-sm text-gray-400">Public lobby with ELO</div>
                   </div>
                   <label className="flex items-center cursor-pointer">
                     <input
@@ -138,6 +118,15 @@ export default function CreateLobby() {
                       <div className={`w-5 h-5 rounded-full bg-white mt-0.5 transition-transform ${isPublic ? 'translate-x-6' : 'translate-x-0.5'}`} />
                     </div>
                   </label>
+                </div>
+                
+                {/* Host role note */}
+                <div className={`text-xs mb-6 p-3 rounded-lg ${isPublic ? 'bg-yellow-500/10 text-yellow-400/80' : 'bg-dark-700 text-gray-500'}`}>
+                  {isPublic ? (
+                    <>⚠️ Requires <span className="font-semibold">Host Role</span> for ranked. Without it, a casual lobby will be created instead.</>
+                  ) : (
+                    <>🎮 Casual lobby - no ELO changes, private code only</>
+                  )}
                 </div>
 
                 {/* Max Players */}
@@ -162,7 +151,7 @@ export default function CreateLobby() {
 
                 {session ? (
                   <button onClick={handleCreate} disabled={creating} className="w-full btn-primary text-lg disabled:opacity-50">
-                    {creating ? 'Creating...' : 'Create Lobby'}
+                    {creating ? 'Creating...' : isPublic ? 'Create Ranked Lobby' : 'Create Casual Lobby'}
                   </button>
                 ) : (
                   <button onClick={() => signIn('discord')} className="w-full btn-primary text-lg flex items-center justify-center gap-2">
@@ -212,7 +201,7 @@ export default function CreateLobby() {
                 <div className="mt-6 pt-6 border-t border-dark-600 text-center">
                   <p className="text-gray-500 text-sm mb-3">Or find a public lobby</p>
                   <a href="/browse" className="text-sm hover:underline" style={{ color: '#9ced23' }}>
-                    Browse Public Lobbies →
+                    Browse Ranked Lobbies →
                   </a>
                 </div>
               </div>
