@@ -67,7 +67,7 @@ export default function Navbar() {
               Stats Leaderboard
             </Link>
             <Link href="/matches" className="text-gray-300 hover:text-white transition-colors">
-              Matches
+              Past Matches
             </Link>
             <Link href="/link" className="text-gray-300 hover:text-white transition-colors">
               Link
