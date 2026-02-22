@@ -204,8 +204,27 @@ export default function Browse() {
                 <div className="text-center py-12">
                   <div className="text-6xl mb-4">🎮</div>
                   <h2 className="font-display text-2xl mb-2">No Ranked Lobbies</h2>
-                  <p className="text-gray-400 mb-6">Join our Discord to find active Ranked sessions!</p>
-                  <Link href="/create" className="btn-primary">Create Private Lobby</Link>
+                  <p className="text-gray-400 mb-6">
+                    Ranked sessions are organized in our Discord. Join to find active games!
+                  </p>
+
+                  <Link
+                    href="https://discord.gg/YJkbX8TRp5"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 bg-[#5865F2] hover:bg-[#4752C4] text-white font-semibold px-6 py-3 rounded-lg transition-colors duration-200"
+                  >
+                    {/* Discord Icon */}
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 127.14 96.36"
+                      className="w-5 h-5 fill-current"
+                    >
+                      <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.91A97.68,97.68,0,0,0,49,6.91,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.61.53,80.21A105.73,105.73,0,0,0,32.71,96.36a77.7,77.7,0,0,0,6.89-11.18,68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.35,2.66-2.07a75.57,75.57,0,0,0,64.32,0c.87.72,1.76,1.41,2.66,2.07a68.68,68.68,0,0,1-10.87,5.19,77.31,77.31,0,0,0,6.89,11.17A105.25,105.25,0,0,0,126.6,80.22C129.24,52.84,121.17,29.11,107.7,8.07ZM42.45,65.69c-6.26,0-11.4-5.73-11.4-12.77S36.09,40.15,42.45,40.15s11.5,5.79,11.4,12.77C53.85,59.96,48.81,65.69,42.45,65.69Zm42.24,0c-6.26,0-11.4-5.73-11.4-12.77S78.33,40.15,84.69,40.15s11.5,5.79,11.4,12.77C96.09,59.96,91.05,65.69,84.69,65.69Z" />
+                    </svg>
+
+                    Join Discord
+                  </Link>
                 </div>
               )}
             </>
