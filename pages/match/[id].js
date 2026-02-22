@@ -1,7 +1,19 @@
-import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Navbar from '../../components/Navbar';
+
+// Team color definitions
+const TEAM_COLORS = {
+  0: { name: 'White', hex: '#ffffff', text: 'text-gray-200', border: 'border-gray-300', bg: 'bg-gray-500' },
+  1: { name: 'Blue', hex: '#3b82f6', text: 'text-blue-400', border: 'border-blue-500', bg: 'bg-blue-500' },
+  2: { name: 'Purple', hex: '#a855f7', text: 'text-purple-400', border: 'border-purple-500', bg: 'bg-purple-500' },
+  3: { name: 'Green', hex: '#22c55e', text: 'text-green-400', border: 'border-green-500', bg: 'bg-green-500' },
+  4: { name: 'Yellow', hex: '#eab308', text: 'text-yellow-400', border: 'border-yellow-500', bg: 'bg-yellow-500' },
+  5: { name: 'Red', hex: '#ef4444', text: 'text-red-400', border: 'border-red-500', bg: 'bg-red-500' },
+  6: { name: 'Pink', hex: '#ec4899', text: 'text-pink-400', border: 'border-pink-500', bg: 'bg-pink-500' },
+  7: { name: 'Orange', hex: '#f97316', text: 'text-orange-400', border: 'border-orange-500', bg: 'bg-orange-500' }
+};
 
 // Class icons
 const CLASS_ICONS = {
@@ -35,36 +47,30 @@ const getClassColor = (className) => {
   return colors[className] || 'text-gray-400';
 };
 
-export default function MatchDetailPage() {
+export default function MatchDetail() {
   const router = useRouter();
   const { id } = router.query;
   const [match, setMatch] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (!id) return;
 
     const fetchMatch = async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/match/${id}`);
-        if (!res.ok) throw new Error('Match not found');
-        const data = await res.json();
-        setMatch(data);
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/matches/${id}`);
+        if (res.ok) {
+          const data = await res.json();
+          setMatch(data);
+        }
       } catch (e) {
-        setError(e.message);
-      } finally {
-        setLoading(false);
+        console.error('Failed to fetch match:', e);
       }
+      setLoading(false);
     };
 
     fetchMatch();
   }, [id]);
-
-  const calculateKDR = (kills, deaths) => {
-    if (!deaths || deaths === 0) return (kills || 0).toFixed(2);
-    return (kills / deaths).toFixed(2);
-  };
 
   if (loading) {
     return (
@@ -74,20 +80,32 @@ export default function MatchDetailPage() {
     );
   }
 
-  if (error || !match) {
+  if (!match) {
     return (
       <div className="min-h-screen bg-dark-900 bg-noise">
         <Navbar />
         <div className="pt-24 pb-12 px-4 text-center">
-          <div className="text-6xl mb-4">😕</div>
+          <div className="text-6xl mb-4">❌</div>
           <h1 className="font-display text-2xl mb-4">Match Not Found</h1>
-          <Link href="/matches" className="btn-primary">Back to Matches</Link>
+          <Link href="/matches" className="btn-primary">View All Matches</Link>
         </div>
       </div>
     );
   }
 
+  const team1Color = TEAM_COLORS[match.team1Color || 1];
+  const team2Color = TEAM_COLORS[match.team2Color || 5];
   const matchDate = new Date(match.timestamp);
+
+  // Determine which team won
+  const team1Won = match.winners?.some(p => match.winners?.find(w => w.odiscordId === p.odiscordId));
+  
+  // Separate players by team
+  const team1Players = [...(match.winners || []), ...(match.losers || [])].filter(p => {
+    // Check if player is in winners and team1 won, or in losers and team1 lost
+    const isWinner = match.winners?.some(w => w.odiscordId === p.odiscordId);
+    return (isWinner && match.eloGain > 0) || (!isWinner && match.eloGain <= 0);
+  });
 
   return (
     <div className="min-h-screen bg-dark-900 bg-noise">
@@ -96,37 +114,32 @@ export default function MatchDetailPage() {
       <div className="pt-24 pb-12 px-4">
         <div className="max-w-4xl mx-auto">
           {/* Match Header */}
-          <div className="bg-dark-800 border border-dark-600 rounded-2xl p-8 mb-8">
-            <div className="text-center">
-              <div className="text-gray-400 text-sm mb-2">
-                {matchDate.toLocaleDateString()} at {matchDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          <div className="bg-dark-800 border border-dark-600 rounded-2xl p-6 mb-6">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+              <div>
+                <h1 className="font-display text-3xl mb-2">MATCH #{match.id?.slice(-6) || id}</h1>
+                <div className="text-gray-400">
+                  {matchDate.toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  })} at {matchDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </div>
+                {match.lobbyId && (
+                  <div className="text-sm text-gray-500 mt-1">Lobby: {match.lobbyId}</div>
+                )}
+                {!match.isRanked && match.isRanked !== undefined && (
+                  <div className="text-sm text-gray-500 mt-1">🎮 Casual Match (No ELO)</div>
+                )}
               </div>
-              <div className="text-gray-500 text-xs mb-4">Match ID: {match.id} • Lobby: {match.lobbyId}</div>
               
               {match.isDraw ? (
-                <div className="font-display text-4xl text-gray-400 mb-4">🤝 DRAW 🤝</div>
+                <div className="text-4xl font-display text-gray-400">DRAW</div>
               ) : (
-                <div className="flex items-center justify-center gap-8">
-                  <div className="text-center">
-                    <div className="font-display text-2xl text-blue-400">TEAM 1</div>
-                    <div className="text-4xl font-bold text-blue-400">{match.winners?.[0]?.odiscordId === match.winners?.[0]?.odiscordId ? '' : ''}</div>
-                  </div>
-                  <div className="text-4xl font-display text-gray-500">VS</div>
-                  <div className="text-center">
-                    <div className="font-display text-2xl text-red-400">TEAM 2</div>
-                  </div>
-                </div>
-              )}
-
-              {/* ELO Info */}
-              {!match.isDraw && (
-                <div className="mt-4 flex justify-center gap-8 text-sm">
-                  <div className="text-gray-400">
-                    Avg ELO: <span className="text-blue-400">{match.winnerAvgElo || '?'}</span>
-                  </div>
-                  <div className="text-gray-400">
-                    Avg ELO: <span className="text-red-400">{match.loserAvgElo || '?'}</span>
-                  </div>
+                <div className="text-center">
+                  <div className="text-sm text-gray-400 mb-1">ELO Change</div>
+                  <div className="text-3xl font-mono text-green-400">+{match.eloGain || 0}</div>
                 </div>
               )}
             </div>
@@ -134,11 +147,12 @@ export default function MatchDetailPage() {
 
           {/* Teams */}
           <div className="grid md:grid-cols-2 gap-6">
-            {/* Winners / Team 1 */}
-            <div className="bg-dark-800 border border-green-500/30 rounded-2xl p-6">
-              <h3 className="font-display text-xl text-green-400 mb-4 flex items-center gap-2">
-                🏆 {match.isDraw ? 'TEAM 1' : 'WINNERS'}
-                {!match.isDraw && <span className="text-sm font-normal text-green-300">+{match.eloGain} ELO</span>}
+            {/* Winners */}
+            <div className={`bg-dark-800 border ${team1Color.border}/30 rounded-2xl p-6`}>
+              <h3 className={`font-display text-xl ${team1Color.text} mb-4 flex items-center gap-2`}>
+                <span className={`w-4 h-4 rounded ${team1Color.bg}`}></span>
+                🏆 WINNERS
+                {match.isRanked !== false && <span className="text-sm font-normal text-green-300">+{match.eloGain || 0} ELO</span>}
               </h3>
               
               <div className="space-y-4">
@@ -158,9 +172,11 @@ export default function MatchDetailPage() {
                           </div>
                         )}
                       </div>
-                      <div className="text-green-400 font-mono text-sm">
-                        {player.oldElo} → {player.newElo}
-                      </div>
+                      {match.isRanked !== false && (
+                        <div className="text-green-400 font-mono text-sm">
+                          {player.oldElo} → {player.newElo}
+                        </div>
+                      )}
                     </div>
                     
                     {player.stats && (
@@ -178,7 +194,9 @@ export default function MatchDetailPage() {
                           <div className="text-gray-500 text-xs">Assists</div>
                         </div>
                         <div>
-                          <div className="text-yellow-400 font-bold">{calculateKDR(player.stats.kills, player.stats.deaths)}</div>
+                          <div className="text-yellow-400 font-bold">
+                            {player.stats.deaths > 0 ? (player.stats.kills / player.stats.deaths).toFixed(2) : player.stats.kills}
+                          </div>
                           <div className="text-gray-500 text-xs">KDR</div>
                         </div>
                         <div>
@@ -196,11 +214,12 @@ export default function MatchDetailPage() {
               </div>
             </div>
 
-            {/* Losers / Team 2 */}
-            <div className="bg-dark-800 border border-red-500/30 rounded-2xl p-6">
-              <h3 className="font-display text-xl text-red-400 mb-4 flex items-center gap-2">
-                {match.isDraw ? 'TEAM 2' : 'LOSERS'}
-                {!match.isDraw && <span className="text-sm font-normal text-red-300">-{match.eloLoss} ELO</span>}
+            {/* Losers */}
+            <div className={`bg-dark-800 border ${team2Color.border}/30 rounded-2xl p-6`}>
+              <h3 className={`font-display text-xl ${team2Color.text} mb-4 flex items-center gap-2`}>
+                <span className={`w-4 h-4 rounded ${team2Color.bg}`}></span>
+                LOSERS
+                {match.isRanked !== false && <span className="text-sm font-normal text-red-300">-{match.eloLoss || 0} ELO</span>}
               </h3>
               
               <div className="space-y-4">
@@ -220,9 +239,11 @@ export default function MatchDetailPage() {
                           </div>
                         )}
                       </div>
-                      <div className="text-red-400 font-mono text-sm">
-                        {player.oldElo} → {player.newElo}
-                      </div>
+                      {match.isRanked !== false && (
+                        <div className="text-red-400 font-mono text-sm">
+                          {player.oldElo} → {player.newElo}
+                        </div>
+                      )}
                     </div>
                     
                     {player.stats && (
@@ -240,7 +261,9 @@ export default function MatchDetailPage() {
                           <div className="text-gray-500 text-xs">Assists</div>
                         </div>
                         <div>
-                          <div className="text-yellow-400 font-bold">{calculateKDR(player.stats.kills, player.stats.deaths)}</div>
+                          <div className="text-yellow-400 font-bold">
+                            {player.stats.deaths > 0 ? (player.stats.kills / player.stats.deaths).toFixed(2) : player.stats.kills}
+                          </div>
                           <div className="text-gray-500 text-xs">KDR</div>
                         </div>
                         <div>
@@ -259,10 +282,10 @@ export default function MatchDetailPage() {
             </div>
           </div>
 
-          {/* Back Button */}
-          <div className="mt-8 text-center">
-            <Link href="/matches" className="btn-secondary">
-              ← Back to All Matches
+          {/* Back Link */}
+          <div className="mt-6 text-center">
+            <Link href="/matches" className="text-gray-400 hover:text-white transition-colors">
+              ← Back to Matches
             </Link>
           </div>
         </div>

@@ -4,6 +4,18 @@ import Link from 'next/link';
 import Navbar from '../components/Navbar';
 import io from 'socket.io-client';
 
+// Team color definitions
+const TEAM_COLORS = {
+  0: { name: 'White', text: 'text-gray-200' },
+  1: { name: 'Blue', text: 'text-blue-400' },
+  2: { name: 'Purple', text: 'text-purple-400' },
+  3: { name: 'Green', text: 'text-green-400' },
+  4: { name: 'Yellow', text: 'text-yellow-400' },
+  5: { name: 'Red', text: 'text-red-400' },
+  6: { name: 'Pink', text: 'text-pink-400' },
+  7: { name: 'Orange', text: 'text-orange-400' }
+};
+
 export default function Browse() {
   const { data: session } = useSession();
   const [lobbies, setLobbies] = useState([]);
@@ -78,14 +90,19 @@ export default function Browse() {
                       <div key={lobby.id} className="bg-dark-800 border border-dark-600 rounded-xl p-6 card-hover">
                         <div className="flex items-center justify-between mb-4">
                           <span className="font-mono text-2xl tracking-widest gradient-text">{lobby.id}</span>
-                          <span className={`px-3 py-1 rounded-lg text-sm ${
-                            lobby.playerCount >= lobby.maxPlayers 
-                              ? 'bg-yellow-500/20 text-yellow-400' 
-                              : 'bg-green-500/20 text-green-400'
-                          }`}>
-                            {lobby.playerCount}/{lobby.maxPlayers}
-                            {lobby.playerCount >= lobby.maxPlayers && ' ⚡'}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-1 rounded text-xs ${lobby.isRanked ? 'bg-yellow-500/20 text-yellow-400' : 'bg-gray-500/20 text-gray-400'}`}>
+                              {lobby.isRanked ? '⭐ Ranked' : '🎮 Casual'}
+                            </span>
+                            <span className={`px-3 py-1 rounded-lg text-sm ${
+                              lobby.playerCount >= lobby.maxPlayers 
+                                ? 'bg-yellow-500/20 text-yellow-400' 
+                                : 'bg-green-500/20 text-green-400'
+                            }`}>
+                              {lobby.playerCount}/{lobby.maxPlayers}
+                              {lobby.playerCount >= lobby.maxPlayers && ' ⚡'}
+                            </span>
+                          </div>
                         </div>
                         
                         <div className="flex items-center gap-3 mb-4">
@@ -132,47 +149,52 @@ export default function Browse() {
                     Ongoing Matches
                   </h2>
                   <div className="grid md:grid-cols-2 gap-4">
-                    {ongoingLobbies.map(lobby => (
-                      <div key={lobby.id} className="bg-dark-800 border border-orange-500/30 rounded-xl p-6 opacity-80">
-                        <div className="flex items-center justify-between mb-4">
-                          <span className="font-mono text-2xl tracking-widest text-orange-400">{lobby.id}</span>
-                          <span className="px-3 py-1 rounded-lg text-sm bg-orange-500/20 text-orange-400">
-                            🎮 In Game
-                          </span>
-                        </div>
-                        
-                        <div className="flex items-center gap-3 mb-4">
-                          <div className="w-10 h-10 rounded-full bg-dark-600 flex items-center justify-center">
-                            {lobby.host.avatar ? (
-                              <img src={lobby.host.avatar} alt="" className="w-full h-full rounded-full" />
-                            ) : (
-                              <span>{lobby.host.username?.[0] || '?'}</span>
+                    {ongoingLobbies.map(lobby => {
+                      const team1Color = TEAM_COLORS[lobby.team1Color || 1];
+                      const team2Color = TEAM_COLORS[lobby.team2Color || 5];
+                      
+                      return (
+                        <div key={lobby.id} className="bg-dark-800 border border-orange-500/30 rounded-xl p-6 opacity-80">
+                          <div className="flex items-center justify-between mb-4">
+                            <span className="font-mono text-2xl tracking-widest text-orange-400">{lobby.id}</span>
+                            <span className="px-3 py-1 rounded-lg text-sm bg-orange-500/20 text-orange-400">
+                              🎮 In Game
+                            </span>
+                          </div>
+                          
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-full bg-dark-600 flex items-center justify-center">
+                              {lobby.host.avatar ? (
+                                <img src={lobby.host.avatar} alt="" className="w-full h-full rounded-full" />
+                              ) : (
+                                <span>{lobby.host.username?.[0] || '?'}</span>
+                              )}
+                            </div>
+                            <div>
+                              <div className="text-gray-300">{lobby.host.username}</div>
+                              <div className="text-xs text-gray-500">Host</div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="text-sm text-gray-400">
+                              {lobby.playerCount} players
+                            </div>
+                            {lobby.score && (
+                              <div className="flex items-center gap-2 text-lg font-mono">
+                                <span className={team1Color.text}>{lobby.score.team1}</span>
+                                <span className="text-gray-500">-</span>
+                                <span className={team2Color.text}>{lobby.score.team2}</span>
+                              </div>
                             )}
                           </div>
-                          <div>
-                            <div className="text-gray-300">{lobby.host.username}</div>
-                            <div className="text-xs text-gray-500">Host</div>
+
+                          <div className="bg-dark-700 rounded-lg p-3 text-center text-gray-500 text-sm">
+                            Match in progress...
                           </div>
                         </div>
-
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="text-sm text-gray-400">
-                            {lobby.playerCount} players
-                          </div>
-                          {lobby.score && (
-                            <div className="flex items-center gap-2 text-lg font-mono">
-                              <span className="text-blue-400">{lobby.score.team1}</span>
-                              <span className="text-gray-500">-</span>
-                              <span className="text-red-400">{lobby.score.team2}</span>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="bg-dark-700 rounded-lg p-3 text-center text-gray-500 text-sm">
-                          Match in progress...
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
