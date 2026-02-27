@@ -129,7 +129,7 @@ export default function Navbar() {
                   onClick={() => signOut()}
                   className="text-sm text-gray-400 hover:text-white transition-colors"
                 >
-                  |   Sign Out
+                | Sign Out
                 </button>
               </div>
             ) : (
