@@ -1,159 +1,459 @@
-import { useRouter } from 'next/router';
 import { useSession } from 'next-auth/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Navbar from '../../components/Navbar';
 import io from 'socket.io-client';
 
-// Team color definitions
-const TEAM_COLORS = {
-  0: { name: 'White', hex: '#ffffff', bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-300' },
-  1: { name: 'Blue', hex: '#3b82f6', bg: 'bg-blue-500', text: 'text-blue-400', border: 'border-blue-500' },
-  2: { name: 'Purple', hex: '#a855f7', bg: 'bg-purple-500', text: 'text-purple-400', border: 'border-purple-500' },
-  3: { name: 'Green', hex: '#22c55e', bg: 'bg-green-500', text: 'text-green-400', border: 'border-green-500' },
-  4: { name: 'Yellow', hex: '#eab308', bg: 'bg-yellow-500', text: 'text-yellow-400', border: 'border-yellow-500' },
-  5: { name: 'Red', hex: '#ef4444', bg: 'bg-red-500', text: 'text-red-400', border: 'border-red-500' },
-  6: { name: 'Pink', hex: '#ec4899', bg: 'bg-pink-500', text: 'text-pink-400', border: 'border-pink-500' },
-  7: { name: 'Orange', hex: '#f97316', bg: 'bg-orange-500', text: 'text-orange-400', border: 'border-orange-500' }
-};
-
-export default function Lobby() {
+export default function LobbyPage() {
+  const { data: session } = useSession();
   const router = useRouter();
   const { code } = router.query;
-  const { data: session, status } = useSession();
-  
+
   const [socket, setSocket] = useState(null);
   const [lobby, setLobby] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
-  const [showTimeoutModal, setShowTimeoutModal] = useState(false);
-  const [timeoutTarget, setTimeoutTarget] = useState(null);
-  const [timeoutDuration, setTimeoutDuration] = useState(30);
-  const [timeoutReason, setTimeoutReason] = useState('');
+  const [vcStatus, setVcStatus] = useState({ playersInVC: [], allInVC: false });
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [selectedServer, setSelectedServer] = useState(0); // 0 = Server 1, 1 = Server 2
+  
+  // Purge state
+  const [purgeActive, setPurgeActive] = useState(false);
+  const [purgeCountdown, setPurgeCountdown] = useState(5);
+  const [eliminatedPlayers, setEliminatedPlayers] = useState([]);
+  const [purgeComplete, setPurgeComplete] = useState(false);
+  const [isSurvivor, setIsSurvivor] = useState(false);
+  const [isEliminated, setIsEliminated] = useState(false);
+  const [immunePlayers, setImmunePlayers] = useState([]);
+  const [hasImmunityNextTime, setHasImmunityNextTime] = useState(false);
 
-  useEffect(() => {
-    if (!code || status === 'loading') return;
-    
-    if (!session) {
-      router.push('/');
-      return;
+  // Sound refs
+  const countdownSound = typeof Audio !== 'undefined' ? new Audio('/purge-countdown.mp3') : null;
+  const eliminatedSound = typeof Audio !== 'undefined' ? new Audio('/purge-eliminated.mp3') : null;
+  const survivedSound = typeof Audio !== 'undefined' ? new Audio('/purge-survived.mp3') : null;
+  const draftPickSound = typeof Audio !== 'undefined' ? new Audio('/draft-pick.mp3') : null;
+
+  const getCurrentUser = useCallback(() => {
+    if (session) {
+      return {
+        odiscordId: session.user.discordId,
+        username: session.user.name,
+        avatar: session.user.image
+      };
     }
+    return null;
+  }, [session]);
+
+  const isHost = lobby && getCurrentUser() && lobby.host.odiscordId === getCurrentUser().odiscordId;
+
+  const isMyTurn = lobby && lobby.phase === 'drafting' && getCurrentUser() && (() => {
+    const currentCaptain = lobby.currentTurn === 'team1' ? lobby.teams.team1[0] : lobby.teams.team2[0];
+    return currentCaptain && currentCaptain.odiscordId === getCurrentUser().odiscordId;
+  })();
+
+  // Connect to socket
+  useEffect(() => {
+    if (!code) return;
 
     const newSocket = io(process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3001');
     setSocket(newSocket);
 
     newSocket.on('connect', () => {
-      newSocket.emit('joinLobby', {
-        code: code.toUpperCase(),
-        userData: {
-          odiscordId: session.user.discordId,
-          username: session.user.name,
-          avatar: session.user.image
-        }
-      });
+      const userData = session ? {
+        odiscordId: session.user.discordId,
+        username: session.user.name,
+        avatar: session.user.image
+      } : null;
+
+      if (userData) {
+        newSocket.emit('joinLobby', { code: code.toUpperCase(), userData });
+      } else {
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/lobby/${code}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.error) {
+              setError(data.error);
+            } else {
+              setLobby(data);
+            }
+            setLoading(false);
+          })
+          .catch(() => {
+            setError('Failed to load lobby');
+            setLoading(false);
+          });
+      }
     });
 
     newSocket.on('lobbyJoined', (lobbyData) => {
       setLobby(lobbyData);
       setLoading(false);
-      setError(null);
     });
 
     newSocket.on('lobbyUpdate', (lobbyData) => {
       setLobby(lobbyData);
     });
 
-    newSocket.on('error', (data) => {
-      setError(data.message);
+    newSocket.on('draftPick', ({ player, team }) => {
+      // Play draft pick sound
+      if (draftPickSound) {
+        draftPickSound.currentTime = 0;
+        draftPickSound.play().catch(() => {});
+      }
+    });
+
+    newSocket.on('rejoinedLobby', (lobbyData) => {
+      setLobby(lobbyData);
       setLoading(false);
     });
 
-    newSocket.on('playerKicked', ({ odiscordId, reason }) => {
-      if (odiscordId === session.user.discordId) {
-        alert(reason || 'You have been removed from the lobby');
+    newSocket.on('lobbyClosed', ({ reason }) => {
+      alert(reason);
+      router.push('/');
+    });
+
+    newSocket.on('playerKicked', ({ odiscordId }) => {
+      const currentUser = getCurrentUser();
+      if (currentUser && odiscordId === currentUser.odiscordId) {
+        alert('You have been kicked from the lobby');
         router.push('/');
       }
     });
 
-    newSocket.on('lobbyClosed', ({ reason }) => {
-      alert(reason || 'Lobby has been closed');
-      router.push('/');
+    newSocket.on('vcStatus', (status) => {
+      setVcStatus(status);
     });
 
-    newSocket.on('timeoutSuccess', ({ odiscordId, mins }) => {
-      alert(`Player timed out for ${mins} minutes`);
-      setShowTimeoutModal(false);
+    // Purge events
+    newSocket.on('purgeStart', ({ totalPlayers, targetPlayers, toEliminate }) => {
+      setPurgeActive(true);
+      setPurgeCountdown(5);
+      setEliminatedPlayers([]);
+      setPurgeComplete(false);
+      setIsSurvivor(false);
+      setIsEliminated(false);
+      setImmunePlayers([]);
+      setHasImmunityNextTime(false);
+      
+      // Play countdown sound
+      if (countdownSound) {
+        countdownSound.play().catch(() => {});
+      }
+      
+      // Countdown timer
+      let count = 5;
+      const countdownInterval = setInterval(() => {
+        count--;
+        setPurgeCountdown(count);
+        if (count <= 0) {
+          clearInterval(countdownInterval);
+        }
+      }, 1000);
+    });
+
+    newSocket.on('immunityUsed', ({ players }) => {
+      setImmunePlayers(players);
+    });
+
+    newSocket.on('playerEliminated', ({ player, index, total, hasImmunity }) => {
+      setEliminatedPlayers(prev => [...prev, player]);
+      
+      // Play elimination sound
+      if (eliminatedSound) {
+        eliminatedSound.currentTime = 0;
+        eliminatedSound.play().catch(() => {});
+      }
+      
+      // Check if current user was eliminated
+      const currentUser = session?.user?.discordId;
+      if (currentUser && player.odiscordId === currentUser) {
+        setIsEliminated(true);
+        if (hasImmunity) {
+          setHasImmunityNextTime(true);
+        }
+      }
+    });
+
+    newSocket.on('purgeComplete', ({ survivors }) => {
+      setPurgeComplete(true);
+      setPurgeActive(false);
+      
+      // Check if current user survived
+      const currentUser = session?.user?.discordId;
+      if (currentUser && survivors.some(p => p.odiscordId === currentUser)) {
+        setIsSurvivor(true);
+        // Play survived sound
+        if (survivedSound) {
+          survivedSound.play().catch(() => {});
+        }
+      } else if (currentUser && isEliminated) {
+        // Eliminated player gets redirected after delay
+        setTimeout(() => {
+          router.push('/');
+        }, 3000);
+      }
+      
+      // Reset purge state after a delay
+      setTimeout(() => {
+        setEliminatedPlayers([]);
+        setPurgeComplete(false);
+        setIsSurvivor(false);
+      }, 3000);
+    });
+
+    newSocket.on('error', (err) => {
+      setError(err.message);
+      setLoading(false);
     });
 
     return () => {
       newSocket.close();
     };
-  }, [code, session, status, router]);
+  }, [code, session]);
 
-  const copyCode = () => {
-    navigator.clipboard.writeText(code?.toUpperCase() || '');
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  // Check VC status periodically for public lobbies
+  useEffect(() => {
+    if (!socket || !lobby || !lobby.isPublic || lobby.phase !== 'waiting') return;
 
-  const isHost = lobby?.host?.odiscordId === session?.user?.discordId;
+    const checkVC = () => {
+      socket.emit('checkVCStatus', { lobbyId: lobby.id });
+    };
 
-  const kickPlayer = (odiscordId) => {
-    if (socket && isHost) {
-      socket.emit('kickPlayer', { lobbyId: lobby.id, odiscordId });
+    checkVC();
+    const interval = setInterval(checkVC, 5000);
+    return () => clearInterval(interval);
+  }, [socket, lobby?.id, lobby?.isPublic, lobby?.phase]);
+
+  // Actions
+  const startCaptainSelect = () => socket.emit('startCaptainSelect', { lobbyId: lobby.id });
+  const selectCaptain = (odiscordId) => socket.emit('selectCaptain', { lobbyId: lobby.id, odiscordId });
+  const removeCaptain = (odiscordId) => socket.emit('removeCaptain', { lobbyId: lobby.id, odiscordId });
+  const draftPick = (odiscordId) => socket.emit('draftPick', { lobbyId: lobby.id, odiscordId });
+  const addScore = (team) => socket.emit('addScore', { lobbyId: lobby.id, team });
+  const declareWinner = (winnerTeam) => {
+    if (confirm(`Declare ${winnerTeam === 'team1' ? 'Team 1' : 'Team 2'} as winner? (Server ${selectedServer + 1})`)) {
+      socket.emit('declareWinner', { lobbyId: lobby.id, winnerTeam, serverIndex: selectedServer });
     }
   };
-
-  const whitelistPlayer = (odiscordId) => {
-    if (socket && isHost) {
-      socket.emit('whitelistPlayer', { lobbyId: lobby.id, odiscordId });
+  const declareDraw = () => {
+    if (confirm('Declare this match as a draw? No ELO changes will be made.')) {
+      socket.emit('declareDraw', { lobbyId: lobby.id });
     }
   };
-
-  const unwhitelistPlayer = (odiscordId) => {
-    if (socket && isHost) {
-      socket.emit('unwhitelistPlayer', { lobbyId: lobby.id, odiscordId });
-    }
-  };
-
-  const openTimeoutModal = (player) => {
-    setTimeoutTarget(player);
-    setTimeoutDuration(30);
-    setTimeoutReason('');
-    setShowTimeoutModal(true);
-  };
-
-  const submitTimeout = () => {
-    if (socket && timeoutTarget) {
-      socket.emit('timeoutPlayer', {
-        odiscordId: timeoutTarget.odiscordId,
-        duration: timeoutDuration,
-        reason: timeoutReason
-      });
-    }
-  };
-
-  const startGame = () => {
-    if (socket && isHost) {
-      socket.emit('startCaptainSelect', { lobbyId: lobby.id });
-    }
-  };
-
-  const leaveLobby = () => {
-    if (socket) {
-      socket.emit('leaveLobby', { lobbyId: lobby.id });
-      router.push('/');
-    }
-  };
-
+  const resetLobby = () => socket.emit('resetLobby', { lobbyId: lobby.id });
   const closeLobby = () => {
-    if (socket && isHost) {
+    if (confirm('Close this lobby?')) {
       socket.emit('closeLobby', { lobbyId: lobby.id });
     }
   };
+  const kickPlayer = (odiscordId) => socket.emit('kickPlayer', { lobbyId: lobby.id, odiscordId });
+  const leaveLobby = () => {
+    socket.emit('leaveLobby', { lobbyId: lobby.id });
+    router.push('/');
+  };
+  
+  // Whitelist actions
+  const whitelistPlayer = (odiscordId) => socket.emit('whitelistPlayer', { lobbyId: lobby.id, odiscordId });
+  const unwhitelistPlayer = (odiscordId) => socket.emit('unwhitelistPlayer', { lobbyId: lobby.id, odiscordId });
+  
+  // Timeout action
+  const timeoutPlayer = (odiscordId, duration, reason) => {
+    socket.emit('timeoutPlayer', { odiscordId, duration, reason });
+  };
 
-  if (status === 'loading' || loading) {
+  const getAvailablePlayers = () => {
+    if (!lobby) return [];
+    return lobby.players.filter(p => 
+      !lobby.captains.some(c => c.odiscordId === p.odiscordId) &&
+      !lobby.teams.team1.some(t => t.odiscordId === p.odiscordId) &&
+      !lobby.teams.team2.some(t => t.odiscordId === p.odiscordId)
+    );
+  };
+
+  // Player Card Component
+  const PlayerCard = ({ player, onClick, selectable, isCaptain: showCaptainBadge, showKick }) => {
+    const isInVC = vcStatus.playersInVC?.includes(player.odiscordId);
+    const isWhitelisted = lobby?.whitelist?.includes(player.odiscordId);
+    const isPlayerHost = player.odiscordId === lobby?.host?.odiscordId;
+    
+    // Use MC head if linked, otherwise Discord avatar
+    const avatarUrl = player.minecraftUuid 
+      ? `https://mc-heads.net/avatar/${player.minecraftUuid}/48`
+      : player.avatar;
+    const displayName = player.minecraftUsername || player.username;
+    
+    return (
+      <div
+        onClick={() => selectable ? onClick?.(player.odiscordId) : setSelectedPlayer(player)}
+        className={`bg-dark-700 border border-dark-500 rounded-xl p-4 cursor-pointer
+          ${selectable ? 'hover:scale-105 hover:bg-dark-600' : 'hover:bg-dark-650'}
+          transition-all duration-200 relative`}
+      >
+        {/* Host controls in top right */}
+        {showKick && isHost && !isPlayerHost && lobby?.phase === 'waiting' && (
+          <div className="absolute top-2 right-2 flex gap-1">
+            {isWhitelisted ? (
+              <button
+                onClick={(e) => { e.stopPropagation(); unwhitelistPlayer(player.odiscordId); }}
+                className="w-6 h-6 bg-green-500/30 hover:bg-green-500/50 rounded-full flex items-center justify-center text-green-400 text-xs"
+                title="Remove whitelist"
+              >
+                ✓
+              </button>
+            ) : (
+              <button
+                onClick={(e) => { e.stopPropagation(); whitelistPlayer(player.odiscordId); }}
+                className="w-6 h-6 bg-dark-600 hover:bg-green-500/30 rounded-full flex items-center justify-center text-gray-400 hover:text-green-400 text-xs"
+                title="Whitelist (immune to purge)"
+              >
+                🛡
+              </button>
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); kickPlayer(player.odiscordId); }}
+              className="w-6 h-6 bg-red-500/20 hover:bg-red-500/40 rounded-full flex items-center justify-center text-red-500 text-xs"
+              title="Kick"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <div className="w-12 h-12 rounded-lg bg-dark-600 flex items-center justify-center text-xl overflow-hidden">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                displayName[0].toUpperCase()
+              )}
+            </div>
+            {showCaptainBadge && (
+              <div className="absolute -top-1 -right-1 w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center text-xs">👑</div>
+            )}
+            {lobby?.isPublic && lobby?.phase === 'waiting' && (
+              <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full ${isInVC ? 'bg-green-500' : 'bg-red-500'}`} title={isInVC ? 'In VC' : 'Not in VC'} />
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold truncate flex items-center gap-2">
+              {displayName}
+              {isPlayerHost && (
+                <span className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: 'rgba(156, 237, 35, 0.3)', color: '#9ced23' }}>HOST</span>
+              )}
+              {isWhitelisted && !isPlayerHost && (
+                <span className="text-xs px-1.5 py-0.5 rounded bg-green-500/20 text-green-400">WL</span>
+              )}
+            </div>
+            <div className="text-xs text-gray-500">{player.elo || 500} ELO</div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Player Modal
+  const PlayerModal = ({ player, onClose }) => {
+    const [playerData, setPlayerData] = useState(null);
+    const [loadingPlayer, setLoadingPlayer] = useState(true);
+
+    useEffect(() => {
+      const fetchPlayer = async () => {
+        try {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/players/${player.odiscordId}`);
+          if (res.ok) {
+            const data = await res.json();
+            setPlayerData(data);
+          }
+        } catch (e) {
+          console.error('Failed to fetch player:', e);
+        }
+        setLoadingPlayer(false);
+      };
+      fetchPlayer();
+    }, [player.odiscordId]);
+
+    const getRankBg = (rank) => {
+      const colors = {
+        S: 'from-yellow-500 to-amber-600',
+        A: 'from-purple-500 to-violet-600',
+        B: 'from-blue-500 to-indigo-600',
+        C: 'from-emerald-500 to-green-600',
+        D: 'from-orange-500 to-red-600',
+        F: 'from-gray-500 to-gray-600'
+      };
+      return colors[rank] || 'from-gray-500 to-gray-600';
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+        <div className="bg-dark-800 border border-dark-600 rounded-2xl p-6 max-w-md w-full" onClick={e => e.stopPropagation()}>
+          {loadingPlayer ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin w-8 h-8 border-4 border-t-transparent rounded-full" style={{ borderColor: '#9ced23', borderTopColor: 'transparent' }} />
+            </div>
+          ) : playerData ? (
+            <>
+              <div className="flex items-center gap-4 mb-6">
+                <div className="relative">
+                  <div className="w-16 h-16 rounded-full bg-dark-600 flex items-center justify-center text-2xl">
+                    {playerData.avatar ? (
+                      <img src={playerData.avatar} alt="" className="w-full h-full rounded-full" />
+                    ) : (
+                      playerData.username[0].toUpperCase()
+                    )}
+                  </div>
+                  <div className={`absolute -bottom-1 -right-1 w-8 h-8 rounded-lg bg-gradient-to-br ${getRankBg(playerData.rank)} flex items-center justify-center overflow-hidden`}>
+                    <img 
+                      src={`/ranks/${playerData.rank?.toLowerCase()}.png`}
+                      alt={playerData.rank}
+                      className="w-6 h-6 object-contain"
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <h3 className="font-display text-xl">{playerData.username}</h3>
+                  <div className="text-gray-400 font-mono">{playerData.elo} ELO</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3 mb-6">
+                <div className="bg-dark-700 rounded-lg p-3 text-center">
+                  <div className="text-lg font-bold text-green-400">{playerData.wins}</div>
+                  <div className="text-xs text-gray-500">Wins</div>
+                </div>
+                <div className="bg-dark-700 rounded-lg p-3 text-center">
+                  <div className="text-lg font-bold text-red-400">{playerData.losses}</div>
+                  <div className="text-xs text-gray-500">Losses</div>
+                </div>
+                <div className="bg-dark-700 rounded-lg p-3 text-center">
+                  <div className="text-lg font-bold text-blue-400">
+                    {playerData.gamesPlayed > 0 ? Math.round((playerData.wins / playerData.gamesPlayed) * 100) : 0}%
+                  </div>
+                  <div className="text-xs text-gray-500">Win Rate</div>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <Link href={`/player/${playerData.odiscordId}`} className="flex-1 btn-primary text-center">
+                  Full Profile
+                </Link>
+                <button onClick={onClose} className="flex-1 btn-secondary">Close</button>
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-gray-400">No stats yet</p>
+              <button onClick={onClose} className="btn-secondary mt-4">Close</button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  if (loading) {
     return (
       <div className="min-h-screen bg-dark-900 flex items-center justify-center">
         <div className="animate-spin w-12 h-12 border-4 border-t-transparent rounded-full" style={{ borderColor: '#9ced23', borderTopColor: 'transparent' }} />
@@ -166,238 +466,405 @@ export default function Lobby() {
       <div className="min-h-screen bg-dark-900 bg-noise">
         <Navbar />
         <div className="pt-24 pb-12 px-4 text-center">
-          <div className="text-6xl mb-4">❌</div>
-          <h1 className="font-display text-2xl mb-4">Error</h1>
+          <div className="text-6xl mb-4">😕</div>
+          <h1 className="font-display text-2xl mb-4">LOBBY NOT FOUND</h1>
           <p className="text-gray-400 mb-6">{error}</p>
-          <Link href="/" className="btn-primary">Go Home</Link>
+          <button onClick={() => router.push('/')} className="btn-primary">Go Home</button>
         </div>
       </div>
     );
   }
 
-  if (!lobby) return null;
-
-  const team1Color = TEAM_COLORS[lobby.team1Color || 1];
-  const team2Color = TEAM_COLORS[lobby.team2Color || 5];
-
   return (
     <div className="min-h-screen bg-dark-900 bg-noise">
       <Navbar />
 
+      {selectedPlayer && <PlayerModal player={selectedPlayer} onClose={() => setSelectedPlayer(null)} />}
+
       <div className="pt-24 pb-12 px-4">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           {/* Header */}
-          <div className="bg-dark-800 border border-dark-600 rounded-2xl p-6 mb-6">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <h1 className="font-display text-3xl">LOBBY</h1>
-                  <button
-                    onClick={copyCode}
-                    className="font-mono text-2xl tracking-widest px-4 py-2 bg-dark-700 rounded-lg hover:bg-dark-600 transition-colors"
-                    style={{ color: '#9ced23' }}
-                  >
-                    {code?.toUpperCase()}
-                    {copied && <span className="ml-2 text-sm">✓</span>}
-                  </button>
-                </div>
-                <div className="flex items-center gap-4 text-sm text-gray-400">
-                  <span>{lobby.players?.length || 0}/{lobby.maxPlayers} players</span>
-                  <span className={lobby.isRanked ? 'text-yellow-400' : 'text-gray-500'}>
-                    {lobby.isRanked ? '⭐ Ranked' : '🎮 Casual'}
-                  </span>
-                  <span className="capitalize">{lobby.phase}</span>
-                </div>
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
+            <div>
+              <div className="text-gray-400 text-sm mb-1">Lobby Code</div>
+              <h1 className="font-display text-4xl flex items-center gap-4">
+                <span className="font-mono tracking-widest">{lobby?.id}</span>
+                <button onClick={() => navigator.clipboard.writeText(lobby?.id)} className="text-sm bg-dark-700 hover:bg-dark-600 px-3 py-1 rounded-lg text-gray-400">Copy</button>
+              </h1>
+              {lobby?.isPublic && <span className="text-xs text-green-400">Public Lobby</span>}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className={`px-4 py-2 rounded-lg font-semibold text-sm ${
+                lobby?.phase === 'waiting' ? 'bg-yellow-500/20 text-yellow-400' :
+                lobby?.phase === 'drafting' ? 'bg-blue-500/20 text-blue-400' :
+                lobby?.phase === 'market' ? 'bg-yellow-500/20 text-yellow-400' :
+                lobby?.phase === 'playing' ? 'bg-green-500/20 text-green-400' :
+                lobby?.phase === 'finished' ? 'bg-gray-500/20 text-gray-400' : ''
+              }`} style={lobby?.phase === 'captain-select' ? { backgroundColor: 'rgba(156, 237, 35, 0.2)', color: '#9ced23' } : {}}>
+                {lobby?.phase === 'waiting' && 'Waiting for Players'}
+                {lobby?.phase === 'captain-select' && 'Selecting Captains'}
+                {lobby?.phase === 'drafting' && 'Draft in Progress'}
+                {lobby?.phase === 'market' && '💰 Market in Progress'}
+                {lobby?.phase === 'playing' && 'Match in Progress'}
+                {lobby?.phase === 'finished' && 'Match Complete'}
               </div>
-              
-              <div className="flex gap-3">
-                {isHost && lobby.phase === 'waiting' && (
-                  <button onClick={startGame} className="btn-primary">
-                    Start Game
-                  </button>
-                )}
-                {isHost ? (
-                  <button onClick={closeLobby} className="btn-secondary text-red-400">
-                    Close Lobby
-                  </button>
-                ) : (
-                  <button onClick={leaveLobby} className="btn-secondary">
-                    Leave
-                  </button>
-                )}
-              </div>
+
+              {isHost && lobby?.phase !== 'finished' && (
+                <button onClick={closeLobby} className="btn-secondary text-red-400 text-sm">Close Lobby</button>
+              )}
+              {!isHost && lobby?.phase === 'waiting' && (
+                <button onClick={leaveLobby} className="btn-secondary text-sm">Leave</button>
+              )}
             </div>
           </div>
 
-          {/* Players List */}
-          {lobby.phase === 'waiting' && (
-            <div className="bg-dark-800 border border-dark-600 rounded-2xl p-6 mb-6">
-              <h2 className="font-display text-xl mb-4">PLAYERS</h2>
-              <div className="grid gap-3">
-                {lobby.players?.map((player, i) => {
-                  const isWhitelisted = lobby.whitelist?.includes(player.odiscordId);
-                  const isPlayerHost = player.odiscordId === lobby.host?.odiscordId;
-                  
-                  return (
-                    <div key={player.odiscordId} className="flex items-center justify-between bg-dark-700 rounded-xl p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-dark-600 overflow-hidden">
-                          {player.minecraftUuid ? (
-                            <img src={`https://mc-heads.net/avatar/${player.minecraftUuid}`} alt="" className="w-full h-full" />
-                          ) : player.avatar ? (
-                            <img src={player.avatar} alt="" className="w-full h-full" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">{player.username?.[0]}</div>
-                          )}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span>{player.minecraftUsername || player.username}</span>
-                            {isPlayerHost && <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded">Host</span>}
-                            {isWhitelisted && !isPlayerHost && <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded">Whitelisted</span>}
-                          </div>
-                          <div className="text-xs text-gray-500">{player.elo || 500} ELO</div>
-                        </div>
-                      </div>
-                      
-                      {isHost && !isPlayerHost && (
-                        <div className="flex gap-2">
-                          {isWhitelisted ? (
-                            <button
-                              onClick={() => unwhitelistPlayer(player.odiscordId)}
-                              className="text-xs px-3 py-1 bg-dark-600 text-gray-400 rounded hover:bg-dark-500"
-                            >
-                              Remove WL
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => whitelistPlayer(player.odiscordId)}
-                              className="text-xs px-3 py-1 bg-green-500/20 text-green-400 rounded hover:bg-green-500/30"
-                            >
-                              Whitelist
-                            </button>
-                          )}
-                          <button
-                            onClick={() => kickPlayer(player.odiscordId)}
-                            className="text-xs px-3 py-1 bg-red-500/20 text-red-400 rounded hover:bg-red-500/30"
-                          >
-                            Kick
-                          </button>
-                          <button
-                            onClick={() => openTimeoutModal(player)}
-                            className="text-xs px-3 py-1 bg-orange-500/20 text-orange-400 rounded hover:bg-orange-500/30"
-                          >
-                            Timeout
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+          {/* VC Status Warning for Public Lobbies */}
+          {lobby?.isPublic && lobby?.phase === 'waiting' && (
+            <div className="bg-blue-500/20 border border-blue-500/30 rounded-xl p-4 mb-6">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">🎤</span>
+                <div>
+                  <div className="font-semibold text-blue-400">Join Voice Channel</div>
+                  <div className="text-sm text-blue-300/70">
+                    Join <span className="font-mono font-bold text-white">🎮 Lobby {lobby.id}</span> in Discord to play.
+                    {!vcStatus.allInVC && (
+                      <span className="ml-2 text-yellow-400">({vcStatus.playersInVC.length}/{lobby.players.length} in VC)</span>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           )}
 
-          {/* Teams Display (during/after draft) */}
-          {(lobby.phase === 'drafting' || lobby.phase === 'playing' || lobby.phase === 'finished') && (
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* Team 1 */}
-              <div className={`bg-dark-800 border rounded-2xl p-6 ${team1Color.border}/30`}>
-                <h3 className={`font-display text-xl mb-4 ${team1Color.text}`}>
-                  TEAM 1
-                  {lobby.phase === 'playing' && <span className="ml-2 text-2xl">{lobby.score?.team1 || 0}</span>}
-                </h3>
-                <div className="space-y-3">
-                  {lobby.teams?.team1?.map(player => (
-                    <div key={player.odiscordId} className="flex items-center gap-3 bg-dark-700 rounded-xl p-3">
-                      <div className="w-8 h-8 rounded-full bg-dark-600 overflow-hidden">
-                        {player.minecraftUuid ? (
-                          <img src={`https://mc-heads.net/avatar/${player.minecraftUuid}`} alt="" className="w-full h-full" />
-                        ) : player.avatar ? (
-                          <img src={player.avatar} alt="" className="w-full h-full" />
-                        ) : null}
+          {/* WAITING PHASE */}
+          {lobby?.phase === 'waiting' && (
+            <div className="space-y-6">
+              {/* Draft Mode Indicator */}
+              <div className={`rounded-xl p-4 text-center ${lobby.draftMode === 'market' ? 'bg-yellow-500/20 border border-yellow-500/30' : 'bg-blue-500/20 border border-blue-500/30'}`}>
+                <span className="text-2xl mr-2">{lobby.draftMode === 'market' ? '💰' : '🎯'}</span>
+                <span className={`font-display text-lg ${lobby.draftMode === 'market' ? 'text-yellow-400' : 'text-blue-400'}`}>
+                  {lobby.draftMode === 'market' ? 'MARKET MODE' : 'DRAFT MODE'}
+                </span>
+                <p className="text-sm text-gray-400 mt-1">
+                  {lobby.draftMode === 'market' ? 'Captains will bid coins on players' : 'Captains will take turns picking players'}
+                </p>
+              </div>
+
+              <div className="bg-dark-800 border border-dark-600 rounded-xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-display text-xl">
+                    PLAYERS ({lobby.players.length})
+                    {lobby.players.length > lobby.maxPlayers && (
+                      <span className="text-red-400 text-sm ml-2">⚠️ {lobby.players.length - lobby.maxPlayers} will be purged!</span>
+                    )}
+                  </h2>
+                  {isHost && lobby.players.length >= 4 && (
+                    <button 
+                      onClick={startCaptainSelect} 
+                      className="btn-primary"
+                      disabled={lobby.isPublic && !vcStatus.allInVC}
+                    >
+                      {lobby.isPublic && !vcStatus.allInVC ? 'Waiting for VC...' : 
+                        lobby.players.length > lobby.maxPlayers ? `Start Purge (${lobby.maxPlayers} spots)` : 'Start Game'}
+                    </button>
+                  )}
+                </div>
+
+                {lobby.players.length > lobby.maxPlayers && (
+                  <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-3 mb-4">
+                    <p className="text-red-400 text-sm">
+                      ⚡ <strong>PURGE MODE:</strong> {lobby.players.length - lobby.maxPlayers} random player{lobby.players.length - lobby.maxPlayers > 1 ? 's' : ''} will be eliminated when the game starts!
+                    </p>
+                  </div>
+                )}
+
+                {lobby.players.length > 0 ? (
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {lobby.players.map(player => (
+                      <PlayerCard key={player.odiscordId} player={player} showKick />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-gray-500">Waiting for players...</div>
+                )}
+              </div>
+
+              <div className="bg-dark-800 border border-dark-600 rounded-xl p-6 text-center">
+                <p className="text-gray-400 mb-4">Share this code:</p>
+                <div className="font-mono text-4xl font-bold tracking-widest gradient-text">{lobby.id}</div>
+              </div>
+            </div>
+          )}
+
+          {/* PURGE PHASE */}
+          {(lobby?.phase === 'purging' || purgeActive) && (
+            <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center">
+              <div className="text-center max-w-3xl px-4">
+                {purgeCountdown > 0 && !purgeComplete && (
+                  <>
+                    <div className="text-red-500 font-display text-6xl mb-4 animate-pulse">⚡ THE PURGE ⚡</div>
+                    <div className="text-9xl font-display text-white mb-4">{purgeCountdown}</div>
+                    <p className="text-red-400 text-xl">{lobby?.purgeData?.originalCount - lobby?.purgeData?.targetCount} players will be eliminated...</p>
+                    
+                    {/* Show immune players */}
+                    {immunePlayers.length > 0 && (
+                      <div className="mt-6 bg-green-500/20 border border-green-500/50 rounded-xl p-4">
+                        <div className="text-green-400 font-semibold mb-2">🛡️ IMMUNE PLAYERS</div>
+                        <div className="flex flex-wrap justify-center gap-2">
+                          {immunePlayers.map(p => (
+                            <span key={p.odiscordId} className="px-3 py-1 bg-green-500/30 rounded-full text-green-300">
+                              {p.username}
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                      <span>{player.minecraftUsername || player.username}</span>
+                    )}
+                  </>
+                )}
+                
+                {purgeCountdown <= 0 && !purgeComplete && (
+                  <div className="space-y-6">
+                    <div className="text-red-500 font-display text-4xl animate-pulse">ELIMINATING...</div>
+                    <div className="flex flex-wrap justify-center gap-4 max-w-2xl">
+                      {eliminatedPlayers.map((player, i) => (
+                        <div key={player.odiscordId} className="bg-red-500/30 border border-red-500 rounded-xl p-4 animate-bounce">
+                          <img src={player.avatar || `https://ui-avatars.com/api/?name=${player.username}`} className="w-16 h-16 rounded-full mx-auto mb-2 opacity-50" />
+                          <div className="text-red-400 font-semibold">{player.username}</div>
+                          <div className="text-red-500 text-xs">ELIMINATED</div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  </div>
+                )}
+                
+                {purgeComplete && (
+                  <div className="space-y-6">
+                    {isSurvivor && (
+                      <>
+                        <div className="text-green-500 font-display text-6xl">🎉 YOU SURVIVED! 🎉</div>
+                        <p className="text-green-400 text-xl">Prepare for battle!</p>
+                      </>
+                    )}
+                    {isEliminated && (
+                      <>
+                        <div className="text-red-500 font-display text-6xl">💀 ELIMINATED 💀</div>
+                        <p className="text-red-400 text-xl">Better luck next time...</p>
+                        {hasImmunityNextTime && (
+                          <div className="mt-4 bg-green-500/20 border border-green-500/50 rounded-xl p-4">
+                            <div className="text-green-400 font-semibold">🛡️ IMMUNITY GRANTED</div>
+                            <p className="text-green-300 text-sm">You cannot be purged in the next lobby!</p>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* CAPTAIN SELECT PHASE */}
+          {lobby?.phase === 'captain-select' && (
+            <div className="space-y-6">
+              <div className="bg-dark-800 border border-dark-600 rounded-xl p-6 text-center">
+                <h2 className="font-display text-2xl mb-2">SELECT CAPTAINS</h2>
+                <p className="text-gray-400">
+                  {isHost ? `Click on ${2 - lobby.captains.length} player(s) to make them captain` : 'Host is selecting captains...'}
+                </p>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="bg-dark-800 border rounded-xl p-6" style={{ borderColor: 'rgba(156, 237, 35, 0.3)' }}>
+                  <h3 className="font-display text-xl mb-4" style={{ color: '#9ced23' }}>TEAM 1 CAPTAIN</h3>
+                  {lobby.teams.team1[0] ? (
+                    <div className="relative">
+                      <PlayerCard player={lobby.teams.team1[0]} isCaptain />
+                      {isHost && (
+                        <button
+                          onClick={() => removeCaptain(lobby.teams.team1[0].odiscordId)}
+                          className="absolute top-2 right-2 px-2 py-1 bg-red-500/20 hover:bg-red-500/40 rounded text-red-400 text-xs"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="h-20 border-2 border-dashed border-dark-500 rounded-xl flex items-center justify-center text-gray-500">Not selected</div>
+                  )}
+                </div>
+                <div className="bg-dark-800 border border-blue-500/30 rounded-xl p-6">
+                  <h3 className="font-display text-xl text-blue-400 mb-4">TEAM 2 CAPTAIN</h3>
+                  {lobby.teams.team2[0] ? (
+                    <div className="relative">
+                      <PlayerCard player={lobby.teams.team2[0]} isCaptain />
+                      {isHost && (
+                        <button
+                          onClick={() => removeCaptain(lobby.teams.team2[0].odiscordId)}
+                          className="absolute top-2 right-2 px-2 py-1 bg-red-500/20 hover:bg-red-500/40 rounded text-red-400 text-xs"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="h-20 border-2 border-dashed border-dark-500 rounded-xl flex items-center justify-center text-gray-500">Not selected</div>
+                  )}
                 </div>
               </div>
 
-              {/* Team 2 */}
-              <div className={`bg-dark-800 border rounded-2xl p-6 ${team2Color.border}/30`}>
-                <h3 className={`font-display text-xl mb-4 ${team2Color.text}`}>
-                  TEAM 2
-                  {lobby.phase === 'playing' && <span className="ml-2 text-2xl">{lobby.score?.team2 || 0}</span>}
-                </h3>
-                <div className="space-y-3">
-                  {lobby.teams?.team2?.map(player => (
-                    <div key={player.odiscordId} className="flex items-center gap-3 bg-dark-700 rounded-xl p-3">
-                      <div className="w-8 h-8 rounded-full bg-dark-600 overflow-hidden">
-                        {player.minecraftUuid ? (
-                          <img src={`https://mc-heads.net/avatar/${player.minecraftUuid}`} alt="" className="w-full h-full" />
-                        ) : player.avatar ? (
-                          <img src={player.avatar} alt="" className="w-full h-full" />
-                        ) : null}
-                      </div>
-                      <span>{player.minecraftUsername || player.username}</span>
-                    </div>
+              <div className="bg-dark-800 border border-dark-600 rounded-xl p-6">
+                <h3 className="font-display text-xl mb-4">SELECT A CAPTAIN</h3>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {lobby.players.filter(p => !lobby.captains.some(c => c.odiscordId === p.odiscordId)).map(player => (
+                    <PlayerCard key={player.odiscordId} player={player} selectable={isHost && lobby.captains.length < 2} onClick={selectCaptain} />
                   ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* DRAFTING PHASE */}
+          {lobby?.phase === 'drafting' && (
+            <div className="space-y-6">
+              <div className="bg-dark-800 border border-dark-600 rounded-xl p-6 text-center">
+                <div className="text-gray-400 mb-2">Current Turn</div>
+                <div className={`font-display text-3xl`} style={{ color: lobby.currentTurn === 'team1' ? '#9ced23' : '#0d52ad' }}>
+                  {lobby.currentTurn === 'team1' ? 'TEAM 1' : 'TEAM 2'}
+                </div>
+                <div className="text-gray-500 mt-2">{lobby.picksLeft} pick{lobby.picksLeft !== 1 ? 's' : ''} remaining</div>
+                {isMyTurn && <div className="mt-4 font-semibold animate-pulse" style={{ color: '#9ced23' }}>It's your turn to pick!</div>}
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className={`bg-dark-800 border rounded-xl p-6`} style={{ borderColor: lobby.currentTurn === 'team1' ? '#9ced23' : 'rgba(255,255,255,0.1)' }}>
+                  <h3 className="font-display text-xl mb-4" style={{ color: '#9ced23' }}>TEAM 1</h3>
+                  <div className="space-y-3">
+                    {lobby.teams.team1.map((player, i) => (
+                      <PlayerCard key={player.odiscordId} player={player} isCaptain={i === 0} />
+                    ))}
+                  </div>
+                </div>
+                <div className={`bg-dark-800 border rounded-xl p-6`} style={{ borderColor: lobby.currentTurn === 'team2' ? '#0d52ad' : 'rgba(255,255,255,0.1)' }}>
+                  <h3 className="font-display text-xl text-blue-400 mb-4">TEAM 2</h3>
+                  <div className="space-y-3">
+                    {lobby.teams.team2.map((player, i) => (
+                      <PlayerCard key={player.odiscordId} player={player} isCaptain={i === 0} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-dark-800 border border-dark-600 rounded-xl p-6">
+                <h3 className="font-display text-xl mb-4">AVAILABLE PLAYERS</h3>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {getAvailablePlayers().map(player => (
+                    <PlayerCard key={player.odiscordId} player={player} selectable={isMyTurn} onClick={draftPick} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* PLAYING / FINISHED PHASE */}
+          {(lobby?.phase === 'playing' || lobby?.phase === 'finished') && (
+            <div className="space-y-6">
+              <div className="bg-dark-800 border border-dark-600 rounded-xl p-8 text-center">
+                {lobby.phase === 'playing' && (
+                  <>
+                    <div className="text-gray-400 mb-4">MATCH IN PROGRESS</div>
+                    <div className="text-6xl mb-6">⚔️</div>
+                    
+                    {isHost ? (
+                      <div className="space-y-4">
+                        {/* Server Selector */}
+                        <div className="mb-6">
+                          <p className="text-gray-400 mb-3">Select which server this match was played on:</p>
+                          <div className="flex justify-center gap-3">
+                            <button 
+                              onClick={() => setSelectedServer(0)}
+                              className={`px-6 py-3 rounded-xl font-semibold transition-all ${
+                                selectedServer === 0 
+                                  ? 'bg-[#9ced23] text-black' 
+                                  : 'bg-dark-700 text-gray-400 hover:bg-dark-600'
+                              }`}
+                            >
+                              🖥️ Server 1
+                            </button>
+                            <button 
+                              onClick={() => setSelectedServer(1)}
+                              className={`px-6 py-3 rounded-xl font-semibold transition-all ${
+                                selectedServer === 1 
+                                  ? 'bg-[#9ced23] text-black' 
+                                  : 'bg-dark-700 text-gray-400 hover:bg-dark-600'
+                              }`}
+                            >
+                              🖥️ Server 2
+                            </button>
+                          </div>
+                        </div>
+
+                        <p className="text-gray-400 mb-4">Select the winning team:</p>
+                        <div className="flex justify-center gap-4 flex-wrap">
+                          <button onClick={() => declareWinner('team1')} className="px-8 py-4 rounded-xl text-lg font-semibold transition-all hover:scale-105" style={{ backgroundColor: '#9ced23', color: 'black' }}>
+                            🟢 Team 1 Wins
+                          </button>
+                          <button onClick={() => declareWinner('team2')} className="px-8 py-4 bg-blue-600 hover:bg-blue-500 rounded-xl text-lg font-semibold transition-all hover:scale-105">
+                            🔵 Team 2 Wins
+                          </button>
+                        </div>
+                        <div className="mt-4">
+                          <button onClick={declareDraw} className="px-6 py-3 bg-gray-600 hover:bg-gray-500 rounded-xl font-semibold transition-all">
+                            🤝 Declare Draw
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-gray-500">Waiting for host to report match result...</div>
+                    )}
+                  </>
+                )}
+
+                {lobby.phase === 'finished' && (
+                  <>
+                    {lobby.isDraw ? (
+                      <div className="font-display text-3xl mb-4 text-gray-400">
+                        🤝 MATCH DRAW 🤝
+                      </div>
+                    ) : (
+                      <div className={`font-display text-3xl mb-4 ${lobby.score.team1 > lobby.score.team2 ? 'text-blue-400' : 'text-red-400'}`}>
+                        🏆 {lobby.score.team1 > lobby.score.team2 ? 'TEAM 1' : 'TEAM 2'} WINS! 🏆
+                      </div>
+                    )}
+                    {isHost && (
+                      <button onClick={resetLobby} className="btn-primary mt-4">Start New Game</button>
+                    )}
+                  </>
+                )}
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="bg-dark-800 border border-blue-500/30 rounded-xl p-6">
+                  <h3 className="font-display text-xl text-blue-400 mb-4">TEAM 1</h3>
+                  <div className="space-y-3">
+                    {lobby.teams.team1.map((player, i) => (
+                      <PlayerCard key={player.odiscordId} player={player} isCaptain={i === 0} />
+                    ))}
+                  </div>
+                </div>
+                <div className="bg-dark-800 border border-red-500/30 rounded-xl p-6">
+                  <h3 className="font-display text-xl text-red-400 mb-4">TEAM 2</h3>
+                  <div className="space-y-3">
+                    {lobby.teams.team2.map((player, i) => (
+                      <PlayerCard key={player.odiscordId} player={player} isCaptain={i === 0} />
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
           )}
         </div>
       </div>
-
-      {/* Timeout Modal */}
-      {showTimeoutModal && timeoutTarget && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-dark-800 border border-dark-600 rounded-2xl p-6 max-w-md w-full">
-            <h2 className="font-display text-xl mb-4">Timeout Player</h2>
-            <p className="text-gray-400 mb-4">
-              Timeout <span className="text-white">{timeoutTarget.username}</span> from all lobbies
-            </p>
-            
-            <div className="mb-4">
-              <label className="block text-sm text-gray-400 mb-2">Duration (minutes)</label>
-              <input
-                type="number"
-                value={timeoutDuration}
-                onChange={(e) => setTimeoutDuration(Math.max(1, Math.min(1440, parseInt(e.target.value) || 30)))}
-                className="w-full px-4 py-2 bg-dark-700 border border-dark-500 rounded-lg"
-                min="1"
-                max="1440"
-              />
-            </div>
-            
-            <div className="mb-6">
-              <label className="block text-sm text-gray-400 mb-2">Reason (optional)</label>
-              <input
-                type="text"
-                value={timeoutReason}
-                onChange={(e) => setTimeoutReason(e.target.value)}
-                className="w-full px-4 py-2 bg-dark-700 border border-dark-500 rounded-lg"
-                placeholder="Reason for timeout"
-              />
-            </div>
-            
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowTimeoutModal(false)}
-                className="flex-1 btn-secondary"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={submitTimeout}
-                className="flex-1 btn-primary bg-orange-500 hover:bg-orange-600"
-              >
-                Timeout
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
