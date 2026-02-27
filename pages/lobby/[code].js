@@ -375,15 +375,22 @@ export default function LobbyPage() {
 
     const getRankBg = (rank) => {
       const colors = {
-        S: 'from-yellow-500 to-amber-600',
-        A: 'from-purple-500 to-violet-600',
-        B: 'from-blue-500 to-indigo-600',
-        C: 'from-emerald-500 to-green-600',
-        D: 'from-orange-500 to-red-600',
-        F: 'from-gray-500 to-gray-600'
+        Netherite: 'from-gray-700 to-gray-900',
+        Diamond: 'from-cyan-500 to-cyan-700',
+        Amethyst: 'from-purple-500 to-purple-700',
+        Emerald: 'from-green-500 to-green-700',
+        Gold: 'from-yellow-500 to-yellow-700',
+        Iron: 'from-gray-400 to-gray-600',
+        Copper: 'from-orange-600 to-orange-800'
       };
       return colors[rank] || 'from-gray-500 to-gray-600';
     };
+
+    // Get display info - prioritize MC
+    const displayName = playerData?.minecraftUsername || playerData?.username || player.username;
+    const avatarUrl = playerData?.minecraftUuid 
+      ? `https://mc-heads.net/avatar/${playerData.minecraftUuid}/64`
+      : playerData?.avatar;
 
     return (
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
@@ -396,11 +403,11 @@ export default function LobbyPage() {
             <>
               <div className="flex items-center gap-4 mb-6">
                 <div className="relative">
-                  <div className="w-16 h-16 rounded-full bg-dark-600 flex items-center justify-center text-2xl">
-                    {playerData.avatar ? (
-                      <img src={playerData.avatar} alt="" className="w-full h-full rounded-full" />
+                  <div className="w-16 h-16 rounded-xl bg-dark-600 flex items-center justify-center text-2xl overflow-hidden">
+                    {avatarUrl ? (
+                      <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      playerData.username[0].toUpperCase()
+                      displayName[0].toUpperCase()
                     )}
                   </div>
                   <div className={`absolute -bottom-1 -right-1 w-8 h-8 rounded-lg bg-gradient-to-br ${getRankBg(playerData.rank)} flex items-center justify-center overflow-hidden`}>
@@ -413,7 +420,7 @@ export default function LobbyPage() {
                   </div>
                 </div>
                 <div>
-                  <h3 className="font-display text-xl">{playerData.username}</h3>
+                  <h3 className="font-display text-xl">{displayName}</h3>
                   <div className="text-gray-400 font-mono">{playerData.elo} ELO</div>
                 </div>
               </div>
