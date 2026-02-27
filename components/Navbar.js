@@ -7,9 +7,10 @@ export default function Navbar() {
   const { data: session } = useSession();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeLobby, setActiveLobby] = useState(null);
+  const [mcData, setMcData] = useState(null);
   const router = useRouter();
 
-  // Check for active lobby
+  // Check for active lobby and fetch MC data
   useEffect(() => {
     const checkLobby = async () => {
       if (session?.user?.discordId) {
@@ -26,7 +27,28 @@ export default function Navbar() {
         }
       }
     };
+    
+    const fetchMcData = async () => {
+      if (session?.user?.discordId) {
+        try {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/players/${session.user.discordId}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.minecraftUuid) {
+              setMcData({
+                uuid: data.minecraftUuid,
+                username: data.minecraftUsername
+              });
+            }
+          }
+        } catch (e) {
+          console.error('Failed to fetch MC data:', e);
+        }
+      }
+    };
+    
     checkLobby();
+    fetchMcData();
   }, [session]);
 
   const handleLogoClick = (e) => {
@@ -38,12 +60,18 @@ export default function Navbar() {
     }
   };
 
+  // Display name and avatar - prioritize MC
+  const displayName = mcData?.username || session?.user?.name;
+  const avatarUrl = mcData?.uuid 
+    ? `https://mc-heads.net/avatar/${mcData.uuid}/32`
+    : session?.user?.image;
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 glass">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-center h-16 relative">
-          {/* Logo - positioned absolute left */}
-          <a href="#" onClick={handleLogoClick} className="absolute left-4 flex items-center gap-2 group cursor-pointer">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo - left side */}
+          <a href="#" onClick={handleLogoClick} className="flex items-center gap-2 group cursor-pointer flex-shrink-0">
             <img 
               src="/logo.png" 
               alt="Counterpush" 
@@ -53,43 +81,50 @@ export default function Navbar() {
           </a>
 
           {/* Desktop Navigation - centered */}
-          <div className="hidden md:flex items-center gap-8">
-            <Link href="/create" className="text-gray-300 hover:text-white transition-colors">
+          <div className="hidden md:flex items-center gap-6 absolute left-1/2 transform -translate-x-1/2">
+            <Link href="/create" className="text-gray-300 hover:text-white transition-colors text-sm">
               Play
             </Link>
-            <Link href="/browse" className="text-gray-300 hover:text-white transition-colors">
+            <Link href="/browse" className="text-gray-300 hover:text-white transition-colors text-sm">
               Browse
             </Link>
-            <Link href="/leaderboard" className="text-gray-300 hover:text-white transition-colors">
+            <Link href="/leaderboard" className="text-gray-300 hover:text-white transition-colors text-sm">
               ELO Leaderboard
             </Link>
-            <Link href="/stats-leaderboard" className="text-gray-300 hover:text-white transition-colors">
+            <Link href="/stats-leaderboard" className="text-gray-300 hover:text-white transition-colors text-sm">
               Stats Leaderboard
             </Link>
-            <Link href="/matches" className="text-gray-300 hover:text-white transition-colors">
-              Past Matches
+            <Link href="/matches" className="text-gray-300 hover:text-white transition-colors text-sm">
+              Matches
             </Link>
-            <Link href="/link" className="text-gray-300 hover:text-white transition-colors">
+            <Link href="/link" className="text-gray-300 hover:text-white transition-colors text-sm">
               Link
             </Link>
             {session && (
-              <Link href={`/player/${session.user.discordId}`} className="text-gray-300 hover:text-white transition-colors">
+              <Link href={`/player/${session.user.discordId}`} className="text-gray-300 hover:text-white transition-colors text-sm">
                 Profile
               </Link>
             )}
           </div>
 
-          {/* Auth Section - positioned absolute right */}
-          <div className="absolute right-4 flex items-center gap-4">
+          {/* Auth Section - right side */}
+          <div className="flex items-center gap-4 flex-shrink-0">
             {session ? (
               <div className="flex items-center gap-3">
-                <img
-                  src={session.user.image}
-                  alt={session.user.name}
-                  className="w-8 h-8 rounded-full"
-                  style={{ boxShadow: '0 0 0 2px rgba(156, 237, 35, 0.5)' }}
-                />
-                <span className="hidden sm:block text-sm font-medium">{session.user.name}</span>
+                <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0" style={{ boxShadow: '0 0 0 2px rgba(156, 237, 35, 0.5)' }}>
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={displayName}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-dark-600 flex items-center justify-center text-sm">
+                      {displayName?.[0]?.toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                <span className="hidden sm:block text-sm font-medium">{displayName}</span>
                 <button
                   onClick={() => signOut()}
                   className="text-sm text-gray-400 hover:text-white transition-colors"
