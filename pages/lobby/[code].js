@@ -276,6 +276,7 @@ export default function LobbyPage() {
     const isInVC = vcStatus.playersInVC?.includes(player.odiscordId);
     const isWhitelisted = lobby?.whitelist?.includes(player.odiscordId);
     const isPlayerHost = player.odiscordId === lobby?.host?.odiscordId;
+    const hasImmunity = player.hasPurgeImmunity;
     
     // Use MC head if linked, otherwise Discord avatar
     const avatarUrl = player.minecraftUuid 
@@ -336,13 +337,16 @@ export default function LobbyPage() {
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="font-semibold truncate flex items-center gap-2">
+            <div className="font-semibold truncate flex items-center gap-2 flex-wrap">
               {displayName}
               {isPlayerHost && (
                 <span className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: 'rgba(156, 237, 35, 0.3)', color: '#9ced23' }}>HOST</span>
               )}
               {isWhitelisted && !isPlayerHost && (
                 <span className="text-xs px-1.5 py-0.5 rounded bg-green-500/20 text-green-400">WL</span>
+              )}
+              {hasImmunity && (
+                <span className="text-xs px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400" title="Immune to next purge">🛡️ Immune</span>
               )}
             </div>
             <div className="text-xs text-gray-500">{player.elo || 500} ELO</div>
